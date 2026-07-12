@@ -5,11 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BeamMemory } from "@oh-my-pi/pi-mnemopi/core/beam";
 
-// Real embeddings (fastembed + onnxruntime-node, ~270MB) install on demand via
-// `bun install` on first use. These tests never exercise embeddings — the
-// consolidation dry-run touches no vectors — so disable them; otherwise the
-// on-demand install hangs each test past the 5s timeout (and starves siblings
-// under parallel CI).
+// These tests never exercise embeddings, so disable them explicitly.
 beforeEach(() => {
 	process.env.MNEMOPI_NO_EMBEDDINGS = "1";
 });

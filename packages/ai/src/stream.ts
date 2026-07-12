@@ -4,13 +4,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { scheduler } from "node:timers/promises";
 import type { Effort } from "@oh-my-pi/pi-catalog/effort";
-import {
-	mapEffortToAnthropicAdaptiveEffort,
-	mapEffortToGoogleThinkingLevel,
-	minimumSupportedEffort,
-	requireSupportedEffort,
-	resolveWireModelId,
-} from "@oh-my-pi/pi-catalog/model-thinking";
+import { minimumSupportedEffort, requireSupportedEffort } from "@oh-my-pi/pi-catalog/model-thinking";
 import { CATALOG_PROVIDERS, type ProviderCatalogEntry } from "@oh-my-pi/pi-catalog/provider-models";
 import { $env, $pickenv, getConfigRootDir, isEnoent, logger, withExtraCaFetch } from "@oh-my-pi/pi-utils";
 import { getCustomApi } from "./api-registry";
@@ -18,12 +12,6 @@ import { AUTH_RETRY_STEPS, isApiKeyResolver, resolveRetryKey } from "./auth-retr
 import * as AIError from "./error";
 import { ProviderHttpError } from "./error";
 import { isUsageLimitOutcome } from "./error/rate-limit";
-import type { BedrockOptions } from "./providers/amazon-bedrock";
-import type { AnthropicOptions } from "./providers/anthropic";
-import type { GoogleOptions } from "./providers/google";
-import type { GoogleGeminiCliOptions } from "./providers/google-gemini-cli";
-import type { GoogleVertexOptions } from "./providers/google-vertex";
-import type { OllamaChatOptions } from "./providers/ollama";
 import type { OpenAICompletionsOptions } from "./providers/openai-completions";
 import { streamOllama, streamOpenAICompletions, streamOpenAIResponses } from "./providers/register-builtins";
 import { isSyntheticModel, streamSynthetic } from "./providers/synthetic";
@@ -637,7 +625,7 @@ function streamDispatch<TApi extends Api>(
 			);
 
 		case "ollama-chat":
-			return streamOllama(model as Model<"ollama-chat">, context, providerOptions as OllamaChatOptions);
+			return streamOllama(model as Model<"ollama-chat">, context, providerOptions as OptionsForApi<"ollama-chat">);
 
 		default:
 			throw new AIError.ConfigurationError(`Unhandled API: ${api}`);
@@ -885,7 +873,6 @@ export function streamSimple<TApi extends Api>(
 					(typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) ||
 					getEnvApiKey(model.provider) ||
 					"",
-				format: requestOptions?.syntheticApiFormat ?? "openai",
 			}),
 		);
 	}
@@ -924,83 +911,6 @@ function maxTokensWithThinkingBudget(
 	return Math.min(uncappedMaxTokens, modelMaxTokens ?? Number.POSITIVE_INFINITY);
 }
 export const OUTPUT_FALLBACK_BUFFER = 4000;
-const ANTHROPIC_USE_INTERLEAVED_THINKING = Bun.env.PI_NO_INTERLEAVED_THINKING !== "1";
-
-export const ANTHROPIC_THINKING: Record<Effort, number> = {
-	minimal: 1024,
-	low: 4096,
-	medium: 8192,
-	high: 16384,
-	xhigh: 32768,
-	max: 32768,
-};
-
-const GOOGLE_THINKING: Record<Effort, number> = {
-	minimal: 1024,
-	low: 4096,
-	medium: 8192,
-	high: 16384,
-	xhigh: 24575,
-	max: 32768,
-};
-
-const BEDROCK_CLAUDE_THINKING: Record<Effort, number> = {
-	minimal: 1024,
-	low: 2048,
-	medium: 8192,
-	high: 16384,
-	xhigh: 16384,
-	max: 32768,
-};
-
-function resolveBedrockThinkingBudget(
-	model: Model<"bedrock-converse-stream">,
-	options?: SimpleStreamOptions,
-): { budget: number; level: Effort } | null {
-	if (!options?.reasoning || !model.reasoning) return null;
-	const level = requireSupportedEffort(model, options.reasoning);
-	const budget = options.thinkingBudgets?.[level] ?? BEDROCK_CLAUDE_THINKING[level];
-	return { budget, level };
-}
-
-export function mapAnthropicToolChoice(choice?: ToolChoice): AnthropicOptions["toolChoice"] {
-	if (!choice) return undefined;
-	if (typeof choice === "string") {
-		if (choice === "required") return "any";
-		if (choice === "auto" || choice === "none" || choice === "any") return choice;
-		return undefined;
-	}
-	if (choice.type === "tool") {
-		return choice.name ? { type: "tool", name: choice.name } : undefined;
-	}
-	if (choice.type === "function") {
-		const name = "function" in choice ? choice.function?.name : choice.name;
-		return name ? { type: "tool", name } : undefined;
-	}
-	return undefined;
-}
-
-export function mapGoogleToolChoice(
-	choice?: ToolChoice,
-): GoogleOptions["toolChoice"] | GoogleGeminiCliOptions["toolChoice"] | GoogleVertexOptions["toolChoice"] {
-	if (!choice) return undefined;
-	if (typeof choice === "string") {
-		if (choice === "required") return "any";
-		if (choice === "auto" || choice === "none" || choice === "any") return choice;
-		return undefined;
-	}
-	// Named-tool routing on Google: emit an `ANY`-mode allow-list of one entry,
-	// mirroring the Anthropic mapper that returns `{type: "tool", name}`.
-	if (choice.type === "tool") {
-		return choice.name ? { mode: "ANY", allowedFunctionNames: [choice.name] } : undefined;
-	}
-	if (choice.type === "function") {
-		const name = "function" in choice ? choice.function?.name : choice.name;
-		return name ? { mode: "ANY", allowedFunctionNames: [name] } : undefined;
-	}
-	return undefined;
-}
-
 function mapOpenAiToolChoice(choice?: ToolChoice): OpenAICompletionsOptions["toolChoice"] {
 	if (!choice) return undefined;
 	if (typeof choice === "string") {
@@ -1127,162 +1037,10 @@ function mapOptionsForApi<TApi extends Api>(
 		onPayload: options?.onPayload,
 		onResponse: options?.onResponse,
 		onSseEvent: options?.onSseEvent,
-		execHandlers: options?.execHandlers,
 		fetch: options?.fetch,
-		fallbacks: options?.fallbacks,
 	};
 
 	switch (model.api) {
-		case "anthropic-messages": {
-			// Explicitly disable thinking when reasoning is not specified or model doesn't support it
-			const reasoning = options?.reasoning;
-			if (!reasoning || !model.reasoning) {
-				return castApi<"anthropic-messages">({
-					...base,
-					requestModelId: resolveWireModelId(model, undefined),
-					thinkingEnabled: false,
-					toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-					thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-					serviceTier: options?.serviceTier,
-				});
-			}
-
-			let thinkingBudget = options.thinkingBudgets?.[reasoning] ?? ANTHROPIC_THINKING[reasoning];
-			if (thinkingBudget <= 0) {
-				return castApi<"anthropic-messages">({
-					...base,
-					requestModelId: resolveWireModelId(model, undefined),
-					thinkingEnabled: false,
-					toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-					thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-					serviceTier: options?.serviceTier,
-				});
-			}
-
-			const thinkingMode = model.thinking?.mode;
-			const effort =
-				thinkingMode === "anthropic-adaptive" || thinkingMode === "anthropic-budget-effort"
-					? mapEffortToAnthropicAdaptiveEffort(model, reasoning)
-					: undefined;
-
-			// For Opus 4.6+ and Sonnet 4.6+: use adaptive thinking with effort level
-			// For older models: use budget-based thinking
-			if (thinkingMode === "anthropic-adaptive") {
-				return castApi<"anthropic-messages">({
-					...base,
-					requestModelId: resolveWireModelId(model, reasoning),
-					thinkingEnabled: true,
-					effort,
-					toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-					thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-					serviceTier: options?.serviceTier,
-				});
-			}
-
-			if (ANTHROPIC_USE_INTERLEAVED_THINKING) {
-				return castApi<"anthropic-messages">({
-					...base,
-					requestModelId: resolveWireModelId(model, reasoning),
-					thinkingEnabled: true,
-					thinkingBudgetTokens: thinkingBudget,
-					effort,
-					toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-					thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-					serviceTier: options?.serviceTier,
-				});
-			}
-
-			// Caller's maxTokens is desired output, so add thinking budget on top. With no caller/model cap, use a finite total fallback.
-			const maxTokens = maxTokensWithThinkingBudget(base.maxTokens, model.maxTokens, thinkingBudget);
-
-			// If not enough room for thinking + output, reduce thinking budget
-			if (maxTokens <= thinkingBudget) {
-				thinkingBudget = maxTokens - MIN_OUTPUT_TOKENS;
-			}
-
-			// If thinking budget is too low, disable thinking
-			if (thinkingBudget <= 0) {
-				return castApi<"anthropic-messages">({
-					...base,
-					requestModelId: resolveWireModelId(model, undefined),
-					thinkingEnabled: false,
-					toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-					thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-					serviceTier: options?.serviceTier,
-				});
-			} else {
-				return castApi<"anthropic-messages">({
-					...base,
-					maxTokens,
-					requestModelId: resolveWireModelId(model, reasoning),
-					thinkingEnabled: true,
-					thinkingBudgetTokens: thinkingBudget,
-					effort,
-					toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-					thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-					serviceTier: options?.serviceTier,
-				});
-			}
-		}
-
-		case "bedrock-converse-stream": {
-			const bedrockBase: BedrockOptions = {
-				...base,
-				reasoning: options?.reasoning,
-				thinkingBudgets: options?.thinkingBudgets,
-				toolChoice: mapAnthropicToolChoice(options?.toolChoice),
-				thinkingDisplay: options?.hideThinkingSummary ? "omitted" : undefined,
-			};
-			// Adaptive mode sends effort directly, no budget_tokens — skip budget inflation.
-			if (model.thinking?.mode === "anthropic-adaptive") {
-				return castApi<"bedrock-converse-stream">(bedrockBase);
-			}
-			const budgetInfo = resolveBedrockThinkingBudget(model as Model<"bedrock-converse-stream">, options);
-			if (!budgetInfo) return bedrockBase as OptionsForApi<TApi>;
-			let maxTokens = bedrockBase.maxTokens ?? model.maxTokens ?? OUTPUT_CAP_WHEN_UNKNOWN;
-			let thinkingBudgets = bedrockBase.thinkingBudgets;
-			if (maxTokens <= budgetInfo.budget) {
-				const desiredMaxTokens = Math.min(
-					model.maxTokens ?? Number.POSITIVE_INFINITY,
-					budgetInfo.budget + MIN_OUTPUT_TOKENS,
-				);
-				if (desiredMaxTokens > maxTokens) {
-					maxTokens = desiredMaxTokens;
-				}
-			}
-			if (maxTokens <= budgetInfo.budget) {
-				const adjustedBudget = Math.max(0, maxTokens - MIN_OUTPUT_TOKENS);
-				thinkingBudgets = { ...(thinkingBudgets ?? {}), [budgetInfo.level]: adjustedBudget };
-			}
-			return castApi<"bedrock-converse-stream">({ ...bedrockBase, maxTokens, thinkingBudgets });
-		}
-
-		case "openrouter": {
-			const useResponses = $env.PI_OPENROUTER_RESPONSES !== "0";
-			if (useResponses) {
-				return castApi<"openai-responses">({
-					...base,
-					reasoning: resolveOpenAiReasoningEffort(model, options),
-					toolChoice: mapOpenAiToolChoice(options?.toolChoice),
-					serviceTier: options?.serviceTier,
-					reasoningSummary: options?.hideThinkingSummary ? null : undefined,
-					openrouterVariant: options?.openrouterVariant,
-					maxTokensExplicit: rawOptions?.maxTokens !== undefined,
-					disableReasoning: options?.disableReasoning,
-					textVerbosity: options?.textVerbosity,
-				});
-			}
-			return castApi<"openai-completions">({
-				...base,
-				reasoning: resolveOpenAiReasoningEffort(model, options),
-				disableReasoning: options?.disableReasoning,
-				toolChoice: mapOpenAiToolChoice(options?.toolChoice),
-				serviceTier: options?.serviceTier,
-				openrouterVariant: options?.openrouterVariant,
-				maxTokensExplicit: rawOptions?.maxTokens !== undefined,
-			});
-		}
-
 		case "openai-completions":
 			return castApi<"openai-completions">({
 				...base,
@@ -1290,7 +1048,6 @@ function mapOptionsForApi<TApi extends Api>(
 				disableReasoning: options?.disableReasoning,
 				toolChoice: mapOpenAiToolChoice(options?.toolChoice),
 				serviceTier: options?.serviceTier,
-				openrouterVariant: options?.openrouterVariant,
 				maxTokensExplicit: rawOptions?.maxTokens !== undefined,
 			});
 
@@ -1301,176 +1058,10 @@ function mapOptionsForApi<TApi extends Api>(
 				toolChoice: mapOpenAiToolChoice(options?.toolChoice),
 				serviceTier: options?.serviceTier,
 				reasoningSummary: options?.hideThinkingSummary ? null : undefined,
-				openrouterVariant: options?.openrouterVariant,
 				maxTokensExplicit: rawOptions?.maxTokens !== undefined,
 				disableReasoning: options?.disableReasoning,
 				textVerbosity: options?.textVerbosity,
 			});
-
-		case "azure-openai-responses":
-			return castApi<"azure-openai-responses">({
-				...base,
-				reasoning: resolveOpenAiReasoningEffort(model, options),
-				toolChoice: mapOpenAiToolChoice(options?.toolChoice),
-				serviceTier: options?.serviceTier,
-				reasoningSummary: options?.hideThinkingSummary ? null : undefined,
-			});
-
-		case "openai-codex-responses":
-			return castApi<"openai-codex-responses">({
-				...base,
-				reasoning: resolveOpenAiReasoningEffort(model, options),
-				toolChoice: mapOpenAiToolChoice(options?.toolChoice),
-				serviceTier: options?.serviceTier,
-				preferWebsockets: options?.preferWebsockets,
-				codexCompaction: options?.codexCompaction,
-				reasoningSummary: options?.hideThinkingSummary ? null : "detailed",
-				textVerbosity: options?.textVerbosity,
-			});
-
-		case "google-generative-ai": {
-			// Explicitly disable thinking when reasoning is not specified or model doesn't support it
-			// This is needed because Gemini has "dynamic thinking" enabled by default
-			const reasoning = options?.reasoning;
-			if (!reasoning || !model.reasoning) {
-				return castApi<"google-generative-ai">({
-					...base,
-					serviceTier: options?.serviceTier,
-					thinking: { enabled: false },
-					toolChoice: mapGoogleToolChoice(options?.toolChoice),
-				});
-			}
-
-			const googleModel = model as Model<"google-generative-ai">;
-			const effort = requireSupportedEffort(googleModel, reasoning);
-
-			// Gemini 3+ models use thinkingLevel exclusively instead of thinkingBudget.
-			// https://ai.google.dev/gemini-api/docs/thinking#set-budget
-			if (googleModel.thinking?.mode === "google-level") {
-				return castApi<"google-generative-ai">({
-					...base,
-					serviceTier: options?.serviceTier,
-					thinking: {
-						enabled: true,
-						level: mapEffortToGoogleThinkingLevel(effort),
-					},
-					hideThinkingSummary: options?.hideThinkingSummary,
-					toolChoice: mapGoogleToolChoice(options?.toolChoice),
-				});
-			}
-
-			return castApi<"google-gemini-cli">({
-				...base,
-				thinking: {
-					enabled: true,
-					budgetTokens: getGoogleBudget(googleModel, effort, options?.thinkingBudgets),
-				},
-				hideThinkingSummary: options?.hideThinkingSummary,
-				toolChoice: mapGoogleToolChoice(options?.toolChoice),
-			});
-		}
-
-		case "google-gemini-cli": {
-			const reasoning = options?.reasoning;
-			const toolChoice = mapGoogleToolChoice(options?.toolChoice);
-			if (reasoning && model.reasoning) {
-				const effort = requireSupportedEffort(model, reasoning);
-
-				// Gemini 3+ models use thinkingLevel instead of thinkingBudget
-				if (model.thinking?.mode === "google-level") {
-					return castApi<"google-gemini-cli">({
-						...base,
-						requestModelId: resolveWireModelId(model, effort),
-						thinking: {
-							enabled: true,
-							level: mapEffortToGoogleThinkingLevel(effort),
-						},
-						hideThinkingSummary: options?.hideThinkingSummary,
-						toolChoice,
-						antigravityEndpointMode: options?.antigravityEndpointMode,
-					});
-				}
-
-				let thinkingBudget =
-					options.thinkingBudgets?.[effort] ?? model.thinking?.effortBudgets?.[effort] ?? GOOGLE_THINKING[effort];
-
-				// Caller's maxTokens is desired output, so add thinking budget on top. With no caller/model cap, use a finite total fallback.
-				const maxTokens = maxTokensWithThinkingBudget(base.maxTokens, model.maxTokens, thinkingBudget);
-
-				// If not enough room for thinking + output, reduce thinking budget
-				if (maxTokens <= thinkingBudget) {
-					thinkingBudget = Math.max(0, maxTokens - MIN_OUTPUT_TOKENS);
-				}
-
-				if (thinkingBudget > 0) {
-					return castApi<"google-gemini-cli">({
-						...base,
-						maxTokens,
-						requestModelId: resolveWireModelId(model, effort),
-						thinking: { enabled: true, budgetTokens: thinkingBudget },
-						hideThinkingSummary: options?.hideThinkingSummary,
-						toolChoice,
-						antigravityEndpointMode: options?.antigravityEndpointMode,
-					});
-				}
-				// Budget clamped to zero — fall through to the thinking-off path.
-			}
-
-			const thinking: GoogleGeminiCliOptions["thinking"] = { enabled: false };
-			if (model.reasoning && model.thinking?.suppressWhenOff) {
-				// CCA re-applies the per-id baked server default when the config
-				// is omitted; suppression must be explicit on the wire.
-				thinking.suppress = model.thinking.mode === "google-level" ? { level: "MINIMAL" } : { budget: 0 };
-			}
-			return castApi<"google-gemini-cli">({
-				...base,
-				requestModelId: resolveWireModelId(model, undefined),
-				thinking,
-				toolChoice,
-				antigravityEndpointMode: options?.antigravityEndpointMode,
-			});
-		}
-
-		case "google-vertex": {
-			// Explicitly disable thinking when reasoning is not specified or model doesn't support it
-			const reasoning = options?.reasoning;
-			if (!reasoning || !model.reasoning) {
-				return castApi<"google-vertex">({
-					...base,
-					serviceTier: options?.serviceTier,
-					thinking: { enabled: false },
-					toolChoice: mapGoogleToolChoice(options?.toolChoice),
-				});
-			}
-
-			const vertexModel = model as Model<"google-vertex">;
-			const effort = requireSupportedEffort(vertexModel, reasoning);
-			const geminiModel = vertexModel as unknown as Model<"google-generative-ai">;
-
-			if (geminiModel.thinking?.mode === "google-level") {
-				return castApi<"google-vertex">({
-					...base,
-					serviceTier: options?.serviceTier,
-					thinking: {
-						enabled: true,
-						level: mapEffortToGoogleThinkingLevel(effort),
-					},
-					hideThinkingSummary: options?.hideThinkingSummary,
-					toolChoice: mapGoogleToolChoice(options?.toolChoice),
-				});
-			}
-
-			return castApi<"google-vertex">({
-				...base,
-				serviceTier: options?.serviceTier,
-				thinking: {
-					enabled: true,
-					budgetTokens: getGoogleBudget(geminiModel, effort, options?.thinkingBudgets),
-				},
-				hideThinkingSummary: options?.hideThinkingSummary,
-				toolChoice: mapGoogleToolChoice(options?.toolChoice),
-			});
-		}
 
 		case "ollama-chat":
 			return castApi<"ollama-chat">({
@@ -1480,33 +1071,6 @@ function mapOptionsForApi<TApi extends Api>(
 				toolChoice: options?.toolChoice,
 			});
 
-		case "cursor-agent": {
-			const execHandlers = options?.cursorExecHandlers ?? options?.execHandlers;
-			const onToolResult = options?.cursorOnToolResult ?? execHandlers?.onToolResult;
-			return castApi<"cursor-agent">({
-				...base,
-				execHandlers,
-				onToolResult,
-			});
-		}
-
-		case "gitlab-duo-agent":
-			return castApi<"gitlab-duo-agent">({
-				...base,
-				cwd: options?.cwd,
-				toolChoice: options?.toolChoice,
-			});
-		case "devin-agent": {
-			const devinModel = model as Model<"devin-agent">;
-			const effort =
-				options?.reasoning && !options.disableReasoning
-					? requireSupportedEffort(devinModel, options.reasoning)
-					: undefined;
-			return castApi<"devin-agent">({
-				...base,
-				chatModelUid: resolveWireModelId(devinModel, effort),
-			});
-		}
 		default:
 			throw new AIError.ConfigurationError(`Unhandled API in mapOptionsForApi: ${model.api}`);
 	}

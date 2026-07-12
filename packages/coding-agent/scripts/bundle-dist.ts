@@ -13,14 +13,7 @@ const shebang = "#!/usr/bin/env bun\n";
 // Native / optional / platform-specific deps are loaded from installed files.
 // `omp-legacy-pi-modules` exists only in compiled binaries via the build plugin;
 // the npm bundle never executes that `isCompiledBinary()` branch.
-const ALWAYS_EXTERNAL = [
-	"mupdf",
-	"@oh-my-pi/pi-natives",
-	"@huggingface/transformers",
-	"fastembed",
-	"onnxruntime-node",
-	"omp-legacy-pi-modules",
-];
+const ALWAYS_EXTERNAL = ["mupdf", "@oh-my-pi/pi-natives", "omp-legacy-pi-modules"];
 
 // Heavy, lazily-used third-party leaf deps. Each is a declared `dependency`, so the
 // published package resolves it from node_modules at runtime; bundling only embeds a

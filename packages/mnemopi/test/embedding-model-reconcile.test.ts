@@ -15,7 +15,7 @@ import { Mnemopi } from "@oh-my-pi/pi-mnemopi/core/memory";
 const OLD_MODEL = "BAAI/bge-small-en-v1.5";
 const NEW_MODEL = "intfloat/multilingual-e5-large";
 
-// Deterministic fastembed-shaped provider so the background rebuild actually
+// Deterministic streaming provider so the background rebuild actually
 // writes rows (and stamps them with the active model) under the test runtime.
 function fakeEmbed() {
 	return async function* embed(texts: readonly string[]) {

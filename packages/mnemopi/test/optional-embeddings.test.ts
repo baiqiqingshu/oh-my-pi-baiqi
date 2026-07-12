@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { getFastembedCacheDir } from "@oh-my-pi/pi-utils";
 import "./setup";
 import {
 	available,
@@ -8,7 +7,6 @@ import {
 	getEmbeddingApiCallCountForTests,
 	resetEmbeddingProviderForTests,
 	setEmbeddingProviderForTests,
-	setLocalModelInitializerForTests,
 } from "@oh-my-pi/pi-mnemopi/core/embeddings";
 import { Mnemopi } from "@oh-my-pi/pi-mnemopi/core/memory";
 import { withMnemopiRuntimeOptions } from "@oh-my-pi/pi-mnemopi/core/runtime-options";
@@ -172,7 +170,7 @@ describe("optional embeddings", () => {
 	it("flattens async batches into one matrix", async () => {
 		await withEnv({ MNEMOPI_NO_EMBEDDINGS: undefined }, async () => {
 			setEmbeddingProviderForTests({
-				// fastembed-shaped: an async generator yielding batches of rows.
+				// Provider streams batches of embedding rows.
 				embed: async function* (texts) {
 					for (let i = 0; i < texts.length; i += 2) {
 						yield texts.slice(i, i + 2).map(text => [text.length, text.charCodeAt(0) || 0]);
@@ -214,38 +212,5 @@ describe("optional embeddings", () => {
 		} finally {
 			memory.close();
 		}
-	});
-
-	it("retries local model initialization after a transient failure", async () => {
-		await withEnv(
-			{
-				NODE_ENV: undefined,
-				BUN_ENV: undefined,
-				MNEMOPI_NO_EMBEDDINGS: undefined,
-				MNEMOPI_EMBEDDING_MODEL: "BAAI/bge-small-en-v1.5",
-				MNEMOPI_EMBEDDING_API_URL: undefined,
-				OPENROUTER_BASE_URL: undefined,
-				OPENROUTER_API_KEY: undefined,
-				OPENAI_API_KEY: undefined,
-			},
-			async () => {
-				let initCalls = 0;
-				const observedCacheDirs: Array<string | undefined> = [];
-				setLocalModelInitializerForTests(async options => {
-					initCalls += 1;
-					observedCacheDirs.push(options.cacheDir);
-					if (initCalls === 1) throw new Error("transient init failure");
-					return {
-						embed: streamRows(texts => texts.map(text => [text.length, text.charCodeAt(0) || 0])),
-					};
-				});
-
-				expect(await embed(["first"])).toBeNull();
-				expect(await embed(["second"])).toEqual([new Float32Array([6, 115])]);
-				expect(initCalls).toBe(2);
-				expect(observedCacheDirs).toEqual([getFastembedCacheDir(), getFastembedCacheDir()]);
-				expect(observedCacheDirs.some(cacheDir => cacheDir?.includes(".hermes") ?? false)).toBe(false);
-			},
-		);
 	});
 });

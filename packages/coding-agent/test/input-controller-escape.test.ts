@@ -667,7 +667,6 @@ describe("InputController escape behavior", () => {
 		expect(ctx.showTreeSelector).not.toHaveBeenCalled();
 		expect(ctx.showUserMessageSelector).not.toHaveBeenCalled();
 	});
-
 });
 
 describe("InputController Ctrl+C behavior", () => {

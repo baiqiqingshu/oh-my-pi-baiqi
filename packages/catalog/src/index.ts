@@ -1,5 +1,4 @@
 export * from "./compat/openai";
-export * from "./discovery";
 export * from "./effort";
 export * from "./fireworks-model-id";
 export * from "./identity";

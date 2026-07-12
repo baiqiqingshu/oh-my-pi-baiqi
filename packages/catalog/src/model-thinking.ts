@@ -36,7 +36,6 @@ import type {
 	CompatOf,
 	Model,
 	ModelSpec,
-	ResolvedDevinCompat,
 	ResolvedOpenAICompat,
 	ResolvedOpenAIResponsesCompat,
 	ThinkingConfig,
@@ -143,7 +142,6 @@ export function resolveModelThinking<TApi extends Api>(
 	// Cascade selects effort only by routing to a sibling model id, so a Devin
 	// model with no explicit routed thinking has no controllable surface —
 	// never fabricate an effort ladder from identity.
-	if ((compat as ResolvedDevinCompat | undefined)?.trustExplicitThinkingOnly === true) return undefined;
 	// Empty/malformed explicit metadata is treated as absent — infer instead.
 	return deriveThinking(spec, compat);
 }

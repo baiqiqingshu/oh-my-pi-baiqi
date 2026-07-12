@@ -16,7 +16,7 @@ export type MnemopiLlmCompletion = (
 
 /**
  * What an embedding provider's `embed` returns: the embedding matrix streamed as async batches,
- * matching fastembed's `embed()` (`AsyncGenerator<number[][]>`). Each yielded batch is a list of
+ * matching a streaming embedding provider (`AsyncGenerator<number[][]>`). Each yielded batch is a list of
  * rows; each row is one number per dimension. Yield the whole matrix as a single batch when not
  * streaming: `async *embed(texts) { yield texts.map(embedOne); }`.
  */

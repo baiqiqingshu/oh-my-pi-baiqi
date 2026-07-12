@@ -15,8 +15,6 @@ import type {
 	MemoryBackendStartOptions,
 	MemoryBackendStatus,
 } from "../memory-backend/types";
-import memoryConsolidationPrompt from "../prompts/system/memory-consolidation-system.md" with { type: "text" };
-import memoryExtractionPrompt from "../prompts/system/memory-extraction-system.md" with { type: "text" };
 import type { AgentSession } from "../session/agent-session";
 import { shortenPath } from "../tools/render-utils";
 import {

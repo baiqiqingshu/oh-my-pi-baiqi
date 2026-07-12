@@ -5,11 +5,8 @@ import { join } from "node:path";
 import { BeamMemory } from "@oh-my-pi/pi-mnemopi/core/beam";
 import { Mnemopi } from "@oh-my-pi/pi-mnemopi/core/memory";
 
-// Real embeddings (fastembed + onnxruntime-node, ~270MB) install on demand via
-// `bun install` on first use. These tests assert identity filtering and FTS
-// recall, not vector search, so disable embeddings; otherwise the on-demand
-// install hangs each test past the 5s timeout (and starves siblings under
-// parallel CI).
+// These tests assert identity filtering and FTS recall rather than vector
+// search, so they disable embeddings explicitly.
 beforeEach(() => {
 	process.env.MNEMOPI_NO_EMBEDDINGS = "1";
 });

@@ -890,7 +890,6 @@ describe("ACP agent", () => {
 		await Bun.sleep(0);
 	});
 
-
 	it("accepts OMP extension methods and rejects unknown unprefixed methods", async () => {
 		const harness = await createHarness();
 

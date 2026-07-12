@@ -7,11 +7,6 @@
  */
 
 import * as AIError from "../error";
-import {
-	validateAnthropicCompatibleApiKey,
-	validateApiKeyAgainstModelsEndpoint,
-	validateOpenAICompatibleApiKey,
-} from "./api-key-validation";
 import type { OAuthController } from "./oauth/types";
 
 type ChatCompletionsValidation = {
@@ -73,38 +68,6 @@ export function createApiKeyLogin(config: ApiKeyLoginConfig): (options: OAuthCon
 		const trimmed = apiKey.trim();
 		if (!trimmed) {
 			throw new AIError.ApiKeyRequiredError();
-		}
-
-		if (config.validation) {
-			options.onProgress?.("Validating API key...");
-			if (config.validation.kind === "chat-completions") {
-				await validateOpenAICompatibleApiKey({
-					provider: config.validation.provider,
-					apiKey: trimmed,
-					baseUrl: config.validation.baseUrl,
-					model: config.validation.model,
-					signal: options.signal,
-					fetch: options.fetch,
-				});
-			} else if (config.validation.kind === "anthropic-messages") {
-				await validateAnthropicCompatibleApiKey({
-					provider: config.validation.provider,
-					apiKey: trimmed,
-					baseUrl: config.validation.baseUrl,
-					model: config.validation.model,
-					signal: options.signal,
-					fetch: options.fetch,
-				});
-			} else {
-				await validateApiKeyAgainstModelsEndpoint({
-					provider: config.validation.provider,
-					apiKey: trimmed,
-					modelsUrl: config.validation.modelsUrl,
-					headers: config.validation.headers,
-					signal: options.signal,
-					fetch: options.fetch,
-				});
-			}
 		}
 
 		return trimmed;

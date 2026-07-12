@@ -621,31 +621,16 @@ export interface DevinCompat {
 export type ResolvedDevinCompat = Required<DevinCompat>;
 
 /** Sparse, user-authored compat overrides for a given API (models.json / config vocabulary). */
-export type CompatConfigOf<TApi extends Api> = TApi extends
-	| "openai-completions"
-	| "openrouter"
-	| "openai-responses"
-	| "azure-openai-responses"
-	| "openai-codex-responses"
+export type CompatConfigOf<TApi extends Api> = TApi extends "openai-completions" | "openai-responses"
 	? OpenAICompat
-	: TApi extends "anthropic-messages"
-		? AnthropicCompat
-		: TApi extends "devin-agent"
-			? DevinCompat
-			: undefined;
+	: undefined;
 
 /** Resolved compat for a given API: complete record, materialized once by `buildModel`. */
-export type CompatOf<TApi extends Api> = TApi extends "openrouter"
-	? ResolvedOpenRouterCompat
-	: TApi extends "openai-completions"
-		? ResolvedOpenAICompat
-		: TApi extends "openai-responses" | "azure-openai-responses" | "openai-codex-responses"
-			? ResolvedOpenAIResponsesCompat
-			: TApi extends "anthropic-messages"
-				? ResolvedAnthropicCompat
-				: TApi extends "devin-agent"
-					? ResolvedDevinCompat
-					: undefined;
+export type CompatOf<TApi extends Api> = TApi extends "openai-completions"
+	? ResolvedOpenAICompat
+	: TApi extends "openai-responses"
+		? ResolvedOpenAIResponsesCompat
+		: ResolvedOpenAICompat;
 
 /** Provider-native compaction endpoint configuration for one model. */
 export interface RemoteCompactionConfig<TApi extends Api = Api> {

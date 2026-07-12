@@ -1,6 +1,5 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { hostMatchesUrl } from "@oh-my-pi/pi-catalog/hosts";
 import {
 	type Env,
 	envBool,
@@ -18,10 +17,9 @@ export { envBool, envDisabled, envFloat, envInt, envOneOf, envOptionalString, en
 
 export const DEFAULT_DATA_DIR = join(homedir(), ".hermes", "mnemopi", "data");
 export const DEFAULT_DB_FILENAME = "mnemopi.db";
-export const FASTEMBED_CACHE_DIR = join(homedir(), ".hermes", "cache", "fastembed");
 export const MODEL_CACHE_DIR = join(homedir(), ".hermes", "mnemopi", "models");
 
-export const DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5";
+export const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 export const DEFAULT_EMBEDDING_API_URL = "https://openrouter.ai/api/v1";
 export const DEFAULT_LLM_MODEL_REPO = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF";
 export const DEFAULT_LLM_MODEL_FILE = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
@@ -30,23 +28,8 @@ export const HOST_LLM_TIMEOUT_SECONDS = 15.0;
 export type VecType = "float32" | "int8" | "bit";
 
 export const EMBEDDING_DIMS: Readonly<Record<string, number>> = {
-	"BAAI/bge-small-en-v1.5": 384,
-	"BAAI/bge-base-en-v1.5": 768,
-	"BAAI/bge-large-en-v1.5": 1024,
-	"BAAI/bge-small-zh-v1.5": 512,
-	"BAAI/bge-base-zh-v1.5": 768,
-	"BAAI/bge-large-zh-v1.5": 1024,
-	"intfloat/multilingual-e5-small": 384,
-	"intfloat/multilingual-e5-base": 768,
-	"intfloat/multilingual-e5-large": 1024,
-	"BAAI/bge-m3": 1024,
-	"BAAI/bge-multilingual-gemma2": 3584,
-	"openai/text-embedding-3-small": 1536,
-	"openai/text-embedding-3-large": 3072,
 	"text-embedding-3-small": 1536,
 	"text-embedding-3-large": 3072,
-	"jina-embeddings-v5-omni-nano": 768,
-	"jina-embeddings-v5-omni-small": 1024,
 };
 
 export const VERACITY_WEIGHT_DEFAULTS = {
@@ -76,7 +59,7 @@ export function embeddingModel(env: Env = process.env): string {
 export function embeddingDim(env: Env = process.env): number {
 	const explicit = envInt("MNEMOPI_EMBEDDING_DIM", NaN, env);
 	if (Number.isFinite(explicit)) return explicit;
-	return EMBEDDING_DIMS[embeddingModel(env)] ?? 384;
+	return EMBEDDING_DIMS[embeddingModel(env)] ?? 1536;
 }
 
 export function embeddingApiKey(env: Env = process.env): string {
@@ -89,10 +72,6 @@ export function embeddingApiKey(env: Env = process.env): string {
 
 export function embeddingApiUrl(env: Env = process.env): string {
 	return envString("MNEMOPI_EMBEDDING_API_URL", envString("OPENROUTER_BASE_URL", DEFAULT_EMBEDDING_API_URL, env), env);
-}
-
-export function embeddingsViaApi(env: Env = process.env): boolean {
-	return envTruthy("MNEMOPI_EMBEDDINGS_VIA_API", env);
 }
 
 export function embeddingsDisabled(env: Env = process.env): boolean {
@@ -119,19 +98,10 @@ export function embeddingMaxInputChars(env: Env = process.env): number {
 	return Math.max(0, envInt("MNEMOPI_EMBEDDING_MAX_INPUT_CHARS", 8192, env));
 }
 
-export function isApiEmbeddingModel(model = embeddingModel(), env: Env = process.env): boolean {
-	if (model.startsWith("openai/") || model.includes("text-embedding") || model.startsWith("text-embedding"))
-		return true;
-	const baseUrl = envString("MNEMOPI_EMBEDDING_API_URL", envString("OPENROUTER_BASE_URL", "", env), env);
-	if (baseUrl && !hostMatchesUrl(baseUrl, "openrouter")) return true;
-	return embeddingsViaApi(env);
-}
-
 export function apiEmbeddingsAvailable(env: Env = process.env): boolean {
 	if (embeddingsDisabled(env)) return false;
-	if (!isApiEmbeddingModel(embeddingModel(env), env)) return false;
 	const baseUrl = envString("MNEMOPI_EMBEDDING_API_URL", envString("OPENROUTER_BASE_URL", "", env), env);
-	return Boolean(baseUrl && !hostMatchesUrl(baseUrl, "openrouter")) || Boolean(embeddingApiKey(env));
+	return Boolean(baseUrl) || Boolean(embeddingApiKey(env));
 }
 
 export function workingMemoryMaxItems(env: Env = process.env): number {

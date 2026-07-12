@@ -39,7 +39,7 @@ interface EmbeddingRow {
 function fakeProvider() {
 	let callCount = 0;
 	const provider = {
-		// fastembed shape: async generator yielding batches of rows.
+		// Provider streams batches of embedding rows.
 		async *embed(texts: readonly string[]) {
 			callCount += 1;
 			yield texts.map(text => {

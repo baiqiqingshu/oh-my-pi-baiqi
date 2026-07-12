@@ -41,21 +41,13 @@ import type {
 	UsageReport,
 } from "./usage";
 import { resolveUsedFraction } from "./usage";
-import { claudeRankingStrategy, claudeUsageProvider } from "./usage/claude";
-import { googleGeminiCliUsageProvider } from "./usage/gemini";
-import { githubCopilotUsageProvider } from "./usage/github-copilot";
-import { antigravityRankingStrategy, antigravityUsageProvider } from "./usage/google-antigravity";
-import { kimiUsageProvider } from "./usage/kimi";
-import { ollamaCloudUsageProvider, ollamaUsageProvider } from "./usage/ollama";
-import { codexRankingStrategy, openaiCodexUsageProvider } from "./usage/openai-codex";
+import { ollamaUsageProvider } from "./usage/ollama";
 import {
 	type CodexResetConsumeCode,
 	type CodexResetCredit,
 	consumeCodexResetCredit,
 	listCodexResetCredits,
 } from "./usage/openai-codex-reset";
-import { opencodeGoUsageProvider } from "./usage/opencode-go";
-import { zaiUsageProvider } from "./usage/zai";
 
 const USAGE_RANKING_METRIC_EPSILON = 1e-9;
 
@@ -556,16 +548,7 @@ async function defaultConfigValueResolver(config: string): Promise<string | unde
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_USAGE_PROVIDERS: UsageProvider[] = [
-	openaiCodexUsageProvider,
-	kimiUsageProvider,
-	antigravityUsageProvider,
-	googleGeminiCliUsageProvider,
 	ollamaUsageProvider,
-	ollamaCloudUsageProvider,
-	claudeUsageProvider,
-	zaiUsageProvider,
-	opencodeGoUsageProvider,
-	githubCopilotUsageProvider,
 ];
 
 const DEFAULT_USAGE_PROVIDER_MAP = new Map<Provider, UsageProvider>(
@@ -907,11 +890,7 @@ function resolveDefaultUsageProvider(provider: Provider): UsageProvider | undefi
 	return DEFAULT_USAGE_PROVIDER_MAP.get(provider);
 }
 
-const DEFAULT_RANKING_STRATEGIES = new Map<Provider, CredentialRankingStrategy>([
-	["openai-codex", codexRankingStrategy],
-	["anthropic", claudeRankingStrategy],
-	["google-antigravity", antigravityRankingStrategy],
-]);
+const DEFAULT_RANKING_STRATEGIES = new Map<Provider, CredentialRankingStrategy>();
 
 function resolveDefaultRankingStrategy(provider: Provider): CredentialRankingStrategy | undefined {
 	return DEFAULT_RANKING_STRATEGIES.get(provider);

@@ -46,10 +46,7 @@ import {
 	toResetUsageAccounts,
 } from "../../slash-commands/helpers/reset-usage";
 import { AUTO_THINKING, type ConfiguredThinkingLevel } from "../../thinking";
-import {
-	isImageProviderPreference,
-	setPreferredImageProvider,
-} from "../../tools";
+import { isImageProviderPreference, setPreferredImageProvider } from "../../tools";
 import { shortenPath } from "../../tools/render-utils";
 import { copyToClipboard } from "../../utils/clipboard";
 import { repo } from "../../utils/git";

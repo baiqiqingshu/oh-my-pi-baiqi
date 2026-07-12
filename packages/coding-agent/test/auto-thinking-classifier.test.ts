@@ -4,10 +4,7 @@ import * as ai from "@oh-my-pi/pi-ai";
 import { Effort, type Model } from "@oh-my-pi/pi-ai";
 import { buildModel } from "@oh-my-pi/pi-catalog/build";
 import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
-import {
-	classifyDifficulty,
-	parseDifficultyLevel,
-} from "@oh-my-pi/pi-coding-agent/auto-thinking/classifier";
+import { classifyDifficulty, parseDifficultyLevel } from "@oh-my-pi/pi-coding-agent/auto-thinking/classifier";
 import {
 	AUTO_THINKING,
 	clampAutoThinkingEffort,

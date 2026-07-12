@@ -44,7 +44,6 @@ import {
 	adjustHsv,
 	formatNumber,
 	getProjectDir,
-	hsvToRgb,
 	isEnoent,
 	logger,
 	postmortem,
