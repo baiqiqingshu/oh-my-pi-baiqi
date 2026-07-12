@@ -3,9 +3,7 @@ import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { scheduler } from "node:timers/promises";
-import { isOfficialAnthropicApiUrl } from "@oh-my-pi/pi-catalog/compat/anthropic";
 import type { Effort } from "@oh-my-pi/pi-catalog/effort";
-import { isVertexExpressOpenAIUrl, isVertexRawPredictUrl } from "@oh-my-pi/pi-catalog/hosts";
 import {
 	mapEffortToAnthropicAdaptiveEffort,
 	mapEffortToGoogleThinkingLevel,
@@ -14,46 +12,23 @@ import {
 	resolveWireModelId,
 } from "@oh-my-pi/pi-catalog/model-thinking";
 import { CATALOG_PROVIDERS, type ProviderCatalogEntry } from "@oh-my-pi/pi-catalog/provider-models";
-import { CODEX_BASE_URL } from "@oh-my-pi/pi-catalog/wire/codex";
 import { $env, $pickenv, getConfigRootDir, isEnoent, logger, withExtraCaFetch } from "@oh-my-pi/pi-utils";
 import { getCustomApi } from "./api-registry";
 import { AUTH_RETRY_STEPS, isApiKeyResolver, resolveRetryKey } from "./auth-retry";
 import * as AIError from "./error";
 import { ProviderHttpError } from "./error";
 import { isUsageLimitOutcome } from "./error/rate-limit";
+import type { OllamaChatOptions } from "./providers/ollama";
+import type { OpenAICompletionsOptions } from "./providers/openai-completions";
 import type { BedrockOptions } from "./providers/amazon-bedrock";
 import type { AnthropicOptions } from "./providers/anthropic";
 import type { CursorOptions } from "./providers/cursor";
 import type { DevinOptions } from "./providers/devin";
-import { isGitLabDuoModel, streamGitLabDuo } from "./providers/gitlab-duo";
-import { type GitLabDuoWorkflowOptions, streamGitLabDuoWorkflow } from "./providers/gitlab-duo-workflow";
 import type { GoogleOptions } from "./providers/google";
-import { getVertexAccessToken } from "./providers/google-auth";
 import type { GoogleGeminiCliOptions } from "./providers/google-gemini-cli";
 import type { GoogleVertexOptions } from "./providers/google-vertex";
-import { isKimiModel, streamKimi } from "./providers/kimi";
-import type { OllamaChatOptions } from "./providers/ollama";
-import type { OpenAICompletionsOptions } from "./providers/openai-completions";
-import { streamPiNative } from "./providers/pi-native-client";
-// Heavy provider stream functions are imported lazily via register-builtins,
-// which wraps each provider module in a dynamic import. This keeps the
-// AWS SDK, google-auth-library, @google/genai, @bufbuild/protobuf, and
-// other provider SDKs out of the CLI startup parse graph. The
-// gitlab-duo / kimi / synthetic providers stay eager because their modules
-// export routing predicates (isGitLabDuoModel, isKimiModel, isSyntheticModel)
-// that must be callable synchronously before streaming begins, and their
-// modules are thin wrappers with no heavy SDK dependencies.
 import {
-	streamAnthropic,
-	streamAzureOpenAIResponses,
-	streamBedrock,
-	streamCursor,
-	streamDevin,
-	streamGoogle,
-	streamGoogleGeminiCli,
-	streamGoogleVertex,
 	streamOllama,
-	streamOpenAICodexResponses,
 	streamOpenAICompletions,
 	streamOpenAIResponses,
 } from "./providers/register-builtins";
@@ -73,74 +48,18 @@ import type {
 	ToolChoice,
 } from "./types";
 import { AssistantMessageEventStream } from "./utils/event-stream";
-import { isFoundryEnabled } from "./utils/foundry";
 import { wrapLeakedThinkingStream } from "./utils/leaked-thinking-stream";
 import { wrapFetchForProxy } from "./utils/proxy";
 import { withRequestDebugFetch } from "./utils/request-debug";
-import { withGeminiThinkingLoopGuard } from "./utils/thinking-loop";
 
-function isGoogleVertexAuthenticatedModel(model: Model<Api>): boolean {
-	return (
-		model.provider === "google-vertex" &&
-		((model.api === "openai-completions" && isVertexExpressOpenAIUrl(model.baseUrl)) ||
-			(model.api === "anthropic-messages" && isVertexRawPredictUrl(model.baseUrl)))
-	);
-}
 
 /**
- * Whether {@link model} is an official first-party endpoint whose stream needs
- * no leaked-thinking healing — the official Anthropic API and the official
- * OpenAI / OpenAI-Codex endpoints return structured thinking blocks and never
- * leak reasoning idioms into the visible text channel.
- *
- * The gate is provider id **and** official endpoint URL: pointing
- * `provider: "anthropic"` (or `openai`) at a custom proxy via `models.yml`
- * still routes through {@link wrapLeakedThinkingStream}, since a third-party
- * gateway may well leak. URL checks are strict (exact origin / path boundary
- * or parsed hostname) — a substring match would accept lookalikes like
- * `https://api.openai.com.evil/`. Anthropic Foundry (`CLAUDE_CODE_USE_FOUNDRY`)
- * redirects an empty `baseUrl` to `FOUNDRY_BASE_URL`, so the check runs against
- * that effective endpoint — exempt only when it resolves to the official host.
+ * Apply live leaked-thinking healing to all streams.
+ * In air-gapped mode with custom providers, always apply healing since
+ * we cannot guarantee providers won't leak reasoning into text.
  */
-function isLeakedThinkingHealExempt(model: Model<Api>): boolean {
-	switch (model.provider) {
-		case "anthropic":
-			// Mirror resolveAnthropicBaseUrl: Foundry redirects an empty baseUrl to
-			// FOUNDRY_BASE_URL, so exempt only when the effective endpoint is official.
-			return isOfficialAnthropicApiUrl((isFoundryEnabled() && $env.FOUNDRY_BASE_URL?.trim()) || model.baseUrl);
-		case "openai":
-			return isOfficialOpenAIApiUrl(model.baseUrl);
-		case "openai-codex":
-			return isOfficialCodexApiUrl(model.baseUrl);
-		default:
-			return false;
-	}
-}
-
-/** Strict official-OpenAI endpoint check; missing baseUrl defaults to `api.openai.com`. */
-function isOfficialOpenAIApiUrl(baseUrl: string | undefined): boolean {
-	if (!baseUrl) return true;
-	try {
-		return new URL(baseUrl).hostname === "api.openai.com";
-	} catch {
-		return false;
-	}
-}
-
-/** Strict official-Codex endpoint check; exact origin or a path boundary after {@link CODEX_BASE_URL}. */
-function isOfficialCodexApiUrl(baseUrl: string | undefined): boolean {
-	if (!baseUrl) return true;
-	const lower = baseUrl.toLowerCase().replace(/\/+$/, "");
-	return lower === CODEX_BASE_URL || lower.startsWith(`${CODEX_BASE_URL}/`);
-}
-
-/**
- * Apply live leaked-thinking healing unless {@link model} is an official
- * first-party endpoint ({@link isLeakedThinkingHealExempt}), which emits
- * structured thinking and needs no healing.
- */
-function healLeakedThinking(model: Model<Api>, inner: AssistantMessageEventStream): AssistantMessageEventStream {
-	return isLeakedThinkingHealExempt(model) ? inner : wrapLeakedThinkingStream(inner);
+function healLeakedThinking(_model: Model<Api>, inner: AssistantMessageEventStream): AssistantMessageEventStream {
+	return wrapLeakedThinkingStream(inner);
 }
 
 type ProviderInFlightLease = {
@@ -602,87 +521,8 @@ function withProviderInFlightLimit<TOptions extends Pick<StreamOptions, "signal"
 	return outer;
 }
 
-function createVertexAuthenticatedFetch(options: StreamOptions | undefined): FetchImpl {
-	const baseFetch = options?.fetch ?? fetch;
-	const vertexFetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-		const token = await getVertexAccessToken({ signal: options?.signal, fetch: baseFetch });
-		const headers = new Headers(init?.headers);
-		headers.set("Authorization", `Bearer ${token}`);
-		const rewritten = resolveVertexRequest(input);
-		const url = rewritten instanceof Request ? rewritten.url : rewritten.toString();
-		if (isVertexRawPredictUrl(url)) {
-			const bodyText = await readVertexRequestBody(rewritten, init);
-			const transformed = transformVertexAnthropicBody(bodyText);
-			return baseFetch(url, {
-				...init,
-				method: init?.method ?? (rewritten instanceof Request ? rewritten.method : "POST"),
-				headers,
-				body: transformed,
-			});
-		}
-		return baseFetch(rewritten, { ...init, headers });
-	};
-	return Object.assign(vertexFetch, baseFetch.preconnect ? { preconnect: baseFetch.preconnect } : {});
-}
 
-async function readVertexRequestBody(input: string | URL | Request, init: RequestInit | undefined): Promise<string> {
-	if (input instanceof Request) return input.clone().text();
-	const body = init?.body;
-	if (typeof body === "string") return body;
-	if (body instanceof Uint8Array) return new TextDecoder().decode(body);
-	if (body instanceof ArrayBuffer) return new TextDecoder().decode(body);
-	return "";
-}
 
-// Vertex Claude rejects the standard Anthropic body shape: the `model` field
-// is encoded in the URL path and `anthropic_version: "vertex-2023-10-16"` is
-// required in the JSON body instead of the `anthropic-version` HTTP header.
-function transformVertexAnthropicBody(bodyText: string): string {
-	if (!bodyText) return bodyText;
-	try {
-		const payload = JSON.parse(bodyText) as Record<string, unknown>;
-		delete payload.model;
-		payload.anthropic_version = "vertex-2023-10-16";
-		return JSON.stringify(payload);
-	} catch {
-		return bodyText;
-	}
-}
-
-function resolveVertexRequest(input: string | URL | Request): string | URL | Request {
-	const project = $env.GOOGLE_CLOUD_PROJECT || $env.GCP_PROJECT || $env.GCLOUD_PROJECT;
-	const location = $env.GOOGLE_VERTEX_LOCATION || $env.GOOGLE_CLOUD_LOCATION || $env.VERTEX_LOCATION;
-	if (!project || !location) return input;
-
-	const rewriteUrl = (url: string): string => {
-		const hasPlaceholder =
-			url.includes("{project}") ||
-			url.includes("{location}") ||
-			url.includes("%7Bproject%7D") ||
-			url.includes("%7Blocation%7D");
-		const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
-		const rewritten = hasPlaceholder
-			? url
-					.replace("https://{location}-aiplatform.googleapis.com", `https://${host}`)
-					.replace("https://%7Blocation%7D-aiplatform.googleapis.com", `https://${host}`)
-					.replaceAll("{project}", encodeURIComponent(project))
-					.replaceAll("%7Bproject%7D", encodeURIComponent(project))
-					.replaceAll("{location}", encodeURIComponent(location))
-					.replaceAll("%7Blocation%7D", encodeURIComponent(location))
-			: url;
-		return rewritten.replace(":streamRawPredict/v1/messages", ":streamRawPredict");
-	};
-
-	if (input instanceof Request) {
-		const rewrittenUrl = rewriteUrl(input.url);
-		return rewrittenUrl === input.url ? input : new Request(rewrittenUrl, input);
-	}
-	if (input instanceof URL) {
-		const rewrittenUrl = rewriteUrl(input.toString());
-		return rewrittenUrl === input.toString() ? input : new URL(rewrittenUrl);
-	}
-	return rewriteUrl(input);
-}
 
 type KeyResolver = string | (() => string | undefined);
 
@@ -758,9 +598,7 @@ export function stream<TApi extends Api>(
 	context: Context,
 	options?: OptionsForApi<TApi>,
 ): AssistantMessageEventStream {
-	return withGeminiThinkingLoopGuard(model, options, opts =>
-		withProviderInFlightLimit(model, opts, () => streamDispatch(model, context, opts)),
-	);
+	return withProviderInFlightLimit(model, options, () => streamDispatch(model, context, options));
 }
 
 function streamDispatch<TApi extends Api>(
@@ -775,80 +613,25 @@ function streamDispatch<TApi extends Api>(
 		fetch: wrapFetchForProxy(debugOptions.fetch ?? (globalThis.fetch as FetchImpl), model.provider),
 	} as OptionsForApi<TApi>;
 
-	// Check custom API registry first (extension-provided APIs like "vertex-claude-api")
+	// Check custom API registry first (extension-provided APIs)
 	const customApiProvider = getCustomApi(model.api);
 	if (customApiProvider) {
 		return customApiProvider.stream(model, context, requestOptions as StreamOptions);
 	}
 
-	if (isGitLabDuoModel(model)) {
-		const apiKey = requestOptions.apiKey || getEnvApiKey(model.provider);
-		if (!apiKey) {
-			throw new AIError.MissingApiKeyError(model.provider);
-		}
-		return streamGitLabDuo(model, context, {
-			...(requestOptions as SimpleStreamOptions),
-			apiKey,
-		});
-	}
-
-	if (model.api === "gitlab-duo-agent") {
-		const apiKey = (requestOptions as StreamOptions | undefined)?.apiKey || getEnvApiKey(model.provider);
-		if (!apiKey) {
-			throw new AIError.MissingApiKeyError(model.provider);
-		}
-		return streamGitLabDuoWorkflow(model as Model<"gitlab-duo-agent">, context, {
-			...(requestOptions as StreamOptions | undefined),
-			apiKey,
-		} as GitLabDuoWorkflowOptions);
-	}
-
-	// Vertex AI uses Application Default Credentials, not API keys
-	if (model.api === "google-vertex") {
-		return streamGoogleVertex(model as Model<"google-vertex">, context, requestOptions as GoogleVertexOptions);
-	} else if (model.api === "bedrock-converse-stream") {
-		// Bedrock doesn't have any API keys instead it sources credentials from standard AWS env variables or from given AWS profile.
-		return streamBedrock(model as Model<"bedrock-converse-stream">, context, requestOptions as BedrockOptions);
+	// Synthetic model handling (local mock/test models)
+	if (isSyntheticModel(model)) {
+		return streamSynthetic(model, context, requestOptions as StreamOptions);
 	}
 
 	const apiKey = requestOptions.apiKey || getEnvApiKey(model.provider);
 	if (!apiKey) {
 		throw new AIError.MissingApiKeyError(model.provider);
 	}
-	const providerOptions = isGoogleVertexAuthenticatedModel(model)
-		? {
-				...requestOptions,
-				apiKey: "vertex-adc",
-				fetch: createVertexAuthenticatedFetch(requestOptions),
-			}
-		: { ...requestOptions, apiKey };
+	const providerOptions = { ...requestOptions, apiKey };
 
 	const api: Api = model.api;
 	switch (api) {
-		case "anthropic-messages": {
-			const anthropicOptions = providerOptions as AnthropicOptions;
-			return streamAnthropic(model as Model<"anthropic-messages">, context, {
-				...anthropicOptions,
-				isOAuth: anthropicOptions.isOAuth ?? model.isOAuth,
-			});
-		}
-
-		case "openrouter": {
-			const useResponses = $env.PI_OPENROUTER_RESPONSES !== "0";
-			if (useResponses) {
-				return streamOpenAIResponses(
-					model as Model<"openai-responses">,
-					context,
-					providerOptions as OptionsForApi<"openai-responses">,
-				);
-			}
-			return streamOpenAICompletions(
-				model as Model<"openai-completions">,
-				context,
-				providerOptions as OptionsForApi<"openai-completions">,
-			);
-		}
-
 		case "openai-completions":
 			return streamOpenAICompletions(
 				model as Model<"openai-completions">,
@@ -863,38 +646,8 @@ function streamDispatch<TApi extends Api>(
 				providerOptions as OptionsForApi<"openai-responses">,
 			);
 
-		case "azure-openai-responses":
-			return streamAzureOpenAIResponses(
-				model as Model<"azure-openai-responses">,
-				context,
-				providerOptions as OptionsForApi<"azure-openai-responses">,
-			);
-
-		case "openai-codex-responses":
-			return streamOpenAICodexResponses(
-				model as Model<"openai-codex-responses">,
-				context,
-				providerOptions as OptionsForApi<"openai-codex-responses">,
-			);
-
-		case "google-generative-ai":
-			return streamGoogle(model as Model<"google-generative-ai">, context, providerOptions);
-
-		case "google-gemini-cli":
-			return streamGoogleGeminiCli(
-				model as Model<"google-gemini-cli">,
-				context,
-				providerOptions as GoogleGeminiCliOptions,
-			);
-
 		case "ollama-chat":
 			return streamOllama(model as Model<"ollama-chat">, context, providerOptions as OllamaChatOptions);
-
-		case "cursor-agent":
-			return streamCursor(model as Model<"cursor-agent">, context, providerOptions as CursorOptions);
-
-		case "devin-agent":
-			return streamDevin(model as Model<"devin-agent">, context, providerOptions as DevinOptions);
 
 		default:
 			throw new AIError.ConfigurationError(`Unhandled API: ${api}`);
@@ -1125,90 +878,25 @@ export function streamSimple<TApi extends Api>(
 		return outer;
 	}
 
-	// Pi-native transport short-circuits the per-provider dispatch entirely:
-	// the gateway resolves provider + credential server-side, so we don't
-	// need an `apiKey` from `getEnvApiKey` here — `options.apiKey` carries
-	// the gateway bearer instead. Comes BEFORE the custom-API check so
-	// extension-registered APIs can't accidentally override a configured
-	// pi-native transport.
-	if (model.transport === "pi-native") {
-		return withGeminiThinkingLoopGuard(model, requestOptions, opts =>
-			withProviderInFlightLimit(model, opts, () => streamPiNative(model, context, opts)),
-		);
-	}
 
 	// Check custom API registry (extension-provided APIs)
 	const customApiProvider = getCustomApi(model.api);
 	if (customApiProvider) {
-		return withGeminiThinkingLoopGuard(model, requestOptions, opts =>
-			withProviderInFlightLimit(model, opts, () => customApiProvider.streamSimple(model, context, opts)),
-		);
+		return withProviderInFlightLimit(model, requestOptions, () => customApiProvider.streamSimple(model, context, requestOptions));
 	}
 
-	// Vertex AI uses Application Default Credentials, not API keys
-	if (model.api === "google-vertex") {
-		const providerOptions = mapOptionsForApi(model, requestOptions, undefined);
-		return stream(model, context, providerOptions);
-	} else if (model.api === "bedrock-converse-stream") {
-		// Bedrock doesn't have any API keys instead it sources credentials from standard AWS env variables or from given AWS profile.
-		const providerOptions = mapOptionsForApi(model, requestOptions, undefined);
-		return stream(model, context, providerOptions);
-	}
-
-	// The resolver form is handled by the wrapper above; only a static string
-	// key reaches this point.
-	const apiKey =
-		(typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) || getEnvApiKey(model.provider);
-	if (!apiKey) {
-		throw new AIError.MissingApiKeyError(model.provider);
-	}
-
-	// GitLab Duo - wraps Anthropic/OpenAI behind GitLab AI Gateway direct access tokens
-	if (isGitLabDuoModel(model)) {
-		return withProviderInFlightLimit(model, requestOptions, () =>
-			streamGitLabDuo(model, context, {
-				...requestOptions,
-				apiKey,
-			}),
-		);
-	}
-
-	// GitLab Duo Workflow - IDE workflow protocol + WebSocket action bridge
-	if (model.api === "gitlab-duo-agent") {
-		// Does not route through withProviderInFlightLimit, so heal explicitly.
-		return healLeakedThinking(
-			model,
-			streamGitLabDuoWorkflow(model as Model<"gitlab-duo-agent">, context, {
-				...requestOptions,
-				apiKey,
-			}),
-		);
-	}
-
-	// Kimi Code - route to dedicated handler that wraps OpenAI or Anthropic API
-	if (isKimiModel(model)) {
-		// Pass raw SimpleStreamOptions - streamKimi handles mapping internally
-		return withProviderInFlightLimit(model, requestOptions, () =>
-			streamKimi(model as Model<"openai-completions">, context, {
-				...requestOptions,
-				apiKey,
-				format: requestOptions?.kimiApiFormat ?? "anthropic",
-			}),
-		);
-	}
-
-	// Synthetic - route to dedicated handler that wraps OpenAI or Anthropic API
+	// Synthetic - route to dedicated handler
 	if (isSyntheticModel(model)) {
-		// Pass raw SimpleStreamOptions - streamSynthetic handles mapping internally
 		return withProviderInFlightLimit(model, requestOptions, () =>
 			streamSynthetic(model as Model<"openai-completions">, context, {
 				...requestOptions,
-				apiKey,
-				format: requestOptions?.syntheticApiFormat ?? "openai", // Default to OpenAI format
+				apiKey: (typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) || getEnvApiKey(model.provider) || "",
+				format: requestOptions?.syntheticApiFormat ?? "openai",
 			}),
 		);
 	}
-	const providerOptions = mapOptionsForApi(model, requestOptions, apiKey);
+
+	const providerOptions = mapOptionsForApi(model, requestOptions, (typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) || getEnvApiKey(model.provider) || "");
 	return stream(model, context, providerOptions);
 }
 

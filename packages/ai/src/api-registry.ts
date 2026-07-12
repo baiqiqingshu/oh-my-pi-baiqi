@@ -2,7 +2,9 @@
  * Custom API provider registry.
  *
  * Allows extensions to register streaming functions for custom API types
- * (e.g., "vertex-claude-api") that are not built into stream.ts.
+ * that are not built into stream.ts.
+ *
+ * [MODIFIED] Stripped to OpenAI-compatible APIs only for air-gapped intranet deployment.
  */
 
 import * as AIError from "./error";
@@ -19,25 +21,8 @@ import type {
 const BUILTIN_API_IDS = [
 	"openai-completions",
 	"openai-responses",
-	"openrouter",
-	"openai-codex-responses",
-	"azure-openai-responses",
-	"anthropic-messages",
-	"bedrock-converse-stream",
-	"google-generative-ai",
-	"google-gemini-cli",
-	"google-vertex",
 	"ollama-chat",
-	"cursor-agent",
-	"gitlab-duo-agent",
-	"devin-agent",
 ] as const satisfies readonly KnownApi[];
-
-type _MissingBuiltinApis = Exclude<KnownApi, (typeof BUILTIN_API_IDS)[number]>;
-type _CheckBuiltinApis = _MissingBuiltinApis extends never
-	? true
-	: ["BUILTIN_APIS is missing KnownApi values", _MissingBuiltinApis];
-true satisfies _CheckBuiltinApis;
 
 const BUILTIN_APIS = new Set<KnownApi>(BUILTIN_API_IDS);
 

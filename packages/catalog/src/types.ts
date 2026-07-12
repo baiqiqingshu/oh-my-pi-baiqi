@@ -8,18 +8,7 @@ export type { KnownProvider } from "./provider-models/descriptors";
 export type KnownApi =
 	| "openai-completions"
 	| "openai-responses"
-	| "openrouter"
-	| "openai-codex-responses"
-	| "azure-openai-responses"
-	| "anthropic-messages"
-	| "bedrock-converse-stream"
-	| "google-generative-ai"
-	| "google-gemini-cli"
-	| "google-vertex"
-	| "ollama-chat"
-	| "cursor-agent"
-	| "gitlab-duo-agent"
-	| "devin-agent";
+	| "ollama-chat";
 export type Api = KnownApi | (string & {});
 
 /** Canonical thinking transport used by a model. */

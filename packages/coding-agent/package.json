@@ -63,13 +63,6 @@
     "@oh-my-pi/pi-utils": "catalog:",
     "@oh-my-pi/pi-wire": "catalog:",
     "@oh-my-pi/snapcompact": "catalog:",
-    "@opentelemetry/api": "catalog:",
-    "@opentelemetry/context-async-hooks": "catalog:",
-    "@opentelemetry/exporter-trace-otlp-proto": "catalog:",
-    "@opentelemetry/resources": "catalog:",
-    "@opentelemetry/sdk-trace-base": "catalog:",
-    "@opentelemetry/sdk-trace-node": "catalog:",
-    "@puppeteer/browsers": "catalog:",
     "@types/turndown": "catalog:",
     "@xterm/headless": "catalog:",
     "arktype": "catalog:",
@@ -77,19 +70,15 @@
     "diff": "catalog:",
     "fast-xml-parser": "catalog:",
     "handlebars": "catalog:",
-    "header-generator": "catalog:",
     "linkedom": "catalog:",
     "lru-cache": "catalog:",
     "mammoth": "catalog:",
     "mupdf": "catalog:",
-    "puppeteer-core": "catalog:",
     "turndown": "catalog:",
     "turndown-plugin-gfm": "catalog:",
     "zod": "catalog:"
   },
   "optionalDependencies": {
-    "@huggingface/transformers": "catalog:",
-    "sherpa-onnx-node": "1.13.2"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

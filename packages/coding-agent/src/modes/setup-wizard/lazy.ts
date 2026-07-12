@@ -1,16 +1,16 @@
+/**
+ * Setup wizard lazy loader - DISABLED for air-gapped intranet deployment.
+ *
+ * The provider setup wizard is not available in air-gapped mode.
+ * Users must configure models.json directly.
+ */
+
 import type { InteractiveModeContext } from "../types";
 
-export async function runProviderSetupWizard(ctx: InteractiveModeContext): Promise<void> {
-	// Keep the full setup wizard behind the existing cold-start boundary; a static
-	// import here would load provider/OAuth/search/theme setup deps on every TUI startup.
-	const { ALL_SCENES, runSetupWizard } = await import("./index");
-	const providersScene = ALL_SCENES.find(scene => scene.id === "providers");
-	if (!providersScene) {
-		ctx.showError("Provider setup is unavailable.");
-		return;
-	}
-	await runSetupWizard(ctx, [providersScene], {
-		markComplete: false,
-		playWelcomeIntro: false,
-	});
+export async function runProviderSetupWizard(_ctx: InteractiveModeContext): Promise<void> {
+	console.error(
+		"\n  Provider setup wizard is not available in air-gapped mode.\n" +
+		"  Please configure models.json directly.\n" +
+		"  运行 `omp --help` 获取更多信息。\n",
+	);
 }

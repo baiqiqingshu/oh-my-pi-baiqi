@@ -1,8 +1,8 @@
 import { buildDocsIndexPayload } from "./generate-docs-index";
 import { createLegacyPiVirtualModulePlugin } from "./legacy-pi-virtual-module";
 
-/** Native runtime dependencies always resolved from the on-demand install instead of embedded into compiled binaries. */
-export const COMPILED_EXTERNAL_DEPENDENCIES: readonly string[] = Object.freeze(["fastembed", "onnxruntime-node"]);
+/** Native runtime dependencies - cleared for air-gapped single-binary deployment. */
+export const COMPILED_EXTERNAL_DEPENDENCIES: readonly string[] = Object.freeze([]);
 
 /** Inputs shared by local and release coding-agent binary builds. */
 export interface CodingAgentCompileOptions {

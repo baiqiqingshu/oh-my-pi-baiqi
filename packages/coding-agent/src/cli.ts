@@ -35,6 +35,10 @@ if (Bun.semver.order(Bun.version, MIN_BUN_VERSION) < 0) {
 	process.exit(1);
 }
 
+// [AIR-GAP] Install network guard before any other imports that might fetch
+import { installNetworkGuard } from "./network-guard";
+installNetworkGuard();
+
 process.title = APP_NAME;
 
 // `Bun.build`-API compiled Windows executables report `import.meta.main ===

@@ -1586,7 +1586,7 @@ export const SETTINGS_SCHEMA = {
 
 	"startup.checkUpdate": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "interaction",
 			group: "Startup & Updates",
@@ -1598,7 +1598,7 @@ export const SETTINGS_SCHEMA = {
 	"marketplace.autoUpdate": {
 		type: "enum",
 		values: ["off", "notify", "auto"] as const,
-		default: "notify",
+		default: "off",
 		ui: {
 			tab: "interaction",
 			group: "Startup & Updates",
@@ -1999,7 +1999,7 @@ export const SETTINGS_SCHEMA = {
 
 	"compaction.remoteEnabled": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "context",
 			group: "Compaction",
@@ -2010,7 +2010,7 @@ export const SETTINGS_SCHEMA = {
 
 	"compaction.remoteStreamingV2Enabled": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "context",
 			group: "Compaction",
@@ -3624,7 +3624,7 @@ export const SETTINGS_SCHEMA = {
 
 	"web_search.enabled": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "tools",
 			group: "Available Tools",
@@ -4923,7 +4923,7 @@ export const SETTINGS_SCHEMA = {
 
 	"dev.autoqaPush.endpoint": {
 		type: "string",
-		default: "https://qa.omp.sh/v1/grievances" as const,
+		default: "" as const,
 		ui: {
 			tab: "tools",
 			group: "Developer",

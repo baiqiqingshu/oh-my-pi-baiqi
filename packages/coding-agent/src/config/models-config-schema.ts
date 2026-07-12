@@ -72,7 +72,7 @@ export const OpenAICompatSchema = type({
 });
 
 const ApiSchema = type(
-	'"openai-completions" | "openai-responses" | "openai-codex-responses" | "azure-openai-responses" | "anthropic-messages" | "google-generative-ai" | "google-gemini-cli" | "google-vertex"',
+	'"openai-completions" | "openai-responses" | "ollama-chat"',
 );
 
 const EffortSchema = type('"minimal" | "low" | "medium" | "high" | "xhigh" | "max"');
