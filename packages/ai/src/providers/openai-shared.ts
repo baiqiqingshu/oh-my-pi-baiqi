@@ -19,7 +19,6 @@ import {
 	hasCoreWeaveProjectHeader,
 	removeBlankCoreWeaveProjectHeaders,
 } from "@oh-my-pi/pi-catalog/wire/coreweave";
-import { parseGitHubCopilotApiKey } from "@oh-my-pi/pi-catalog/wire/github-copilot";
 import {
 	$env,
 	classifyJsonPrefix,

@@ -1,7 +1,7 @@
 import type { Api, Context, Model } from "../types";
 import type { AssistantMessageEventStream } from "../utils/event-stream";
-import { streamOpenAICompletions } from "./register-builtins";
 import type { OpenAICompletionsOptions } from "./openai-completions";
+import { streamOpenAICompletions } from "./register-builtins";
 
 const SYNTHETIC_NEW_BASE_URL = "https://api.synthetic.new/openai/v1";
 

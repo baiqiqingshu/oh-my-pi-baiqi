@@ -30,14 +30,16 @@ const CATALOG_ENTRY_LIST: readonly ProviderCatalogEntry[] = CATALOG_PROVIDERS;
 
 export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = CATALOG_ENTRY_LIST.flatMap(provider => {
 	if (!provider.createModelManagerOptions || provider.specialModelManager) return [];
-	return [{
-		providerId: provider.id,
-		defaultModel: provider.defaultModel,
-		createModelManagerOptions: provider.createModelManagerOptions,
-		allowUnauthenticated: provider.allowUnauthenticated,
-		dynamicModelsAuthoritative: provider.dynamicModelsAuthoritative,
-		catalogDiscovery: provider.catalogDiscovery,
-	}];
+	return [
+		{
+			providerId: provider.id,
+			defaultModel: provider.defaultModel,
+			createModelManagerOptions: provider.createModelManagerOptions,
+			allowUnauthenticated: provider.allowUnauthenticated,
+			dynamicModelsAuthoritative: provider.dynamicModelsAuthoritative,
+			catalogDiscovery: provider.catalogDiscovery,
+		},
+	];
 });
 
 export const DEFAULT_MODEL_PER_PROVIDER: Record<KnownProvider, string> = Object.fromEntries(

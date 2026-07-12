@@ -26,7 +26,6 @@ import type {
 	OptionsForApi,
 	SimpleStreamOptions,
 	StreamOptions,
-	ThinkingBudgets,
 	ToolChoice,
 } from "./types";
 import { AssistantMessageEventStream } from "./utils/event-stream";
@@ -899,17 +898,6 @@ export async function completeSimple<TApi extends Api>(
 	);
 }
 
-const MIN_OUTPUT_TOKENS = 1024;
-// Fallback total output cap for models whose catalog entry has no maxTokens.
-const OUTPUT_CAP_WHEN_UNKNOWN = 64_000;
-function maxTokensWithThinkingBudget(
-	baseMaxTokens: number | undefined,
-	modelMaxTokens: number | null,
-	thinkingBudget: number,
-): number {
-	const uncappedMaxTokens = baseMaxTokens === undefined ? OUTPUT_CAP_WHEN_UNKNOWN : baseMaxTokens + thinkingBudget;
-	return Math.min(uncappedMaxTokens, modelMaxTokens ?? Number.POSITIVE_INFINITY);
-}
 export const OUTPUT_FALLBACK_BUFFER = 4000;
 function mapOpenAiToolChoice(choice?: ToolChoice): OpenAICompletionsOptions["toolChoice"] {
 	if (!choice) return undefined;
@@ -1074,36 +1062,4 @@ function mapOptionsForApi<TApi extends Api>(
 		default:
 			throw new AIError.ConfigurationError(`Unhandled API in mapOptionsForApi: ${model.api}`);
 	}
-}
-
-function getGoogleBudget(
-	model: Model<"google-generative-ai">,
-	effort: Effort,
-	customBudgets?: ThinkingBudgets,
-): number {
-	requireSupportedEffort(model, effort);
-
-	// Custom budgets take precedence if provided for this level
-	if (customBudgets?.[effort] !== undefined) {
-		return customBudgets[effort]!;
-	}
-
-	// See https://ai.google.dev/gemini-api/docs/thinking#set-budget
-	if (model.id.includes("2.5-")) {
-		switch (effort) {
-			case "minimal":
-				return 128;
-			case "low":
-				return 2048;
-			case "medium":
-				return 8192;
-			case "high":
-			case "xhigh":
-			case "max":
-				return model.id.includes("2.5-flash") ? 24576 : 32768;
-		}
-	}
-
-	// Unknown model - use dynamic
-	return -1;
 }

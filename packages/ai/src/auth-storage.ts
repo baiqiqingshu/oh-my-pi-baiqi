@@ -547,9 +547,7 @@ async function defaultConfigValueResolver(config: string): Promise<string | unde
 // Usage Providers (defaults)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_USAGE_PROVIDERS: UsageProvider[] = [
-	ollamaUsageProvider,
-];
+const DEFAULT_USAGE_PROVIDERS: UsageProvider[] = [ollamaUsageProvider];
 
 const DEFAULT_USAGE_PROVIDER_MAP = new Map<Provider, UsageProvider>(
 	DEFAULT_USAGE_PROVIDERS.map(provider => [provider.id, provider]),
