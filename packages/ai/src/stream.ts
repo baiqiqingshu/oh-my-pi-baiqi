@@ -18,20 +18,14 @@ import { AUTH_RETRY_STEPS, isApiKeyResolver, resolveRetryKey } from "./auth-retr
 import * as AIError from "./error";
 import { ProviderHttpError } from "./error";
 import { isUsageLimitOutcome } from "./error/rate-limit";
-import type { OllamaChatOptions } from "./providers/ollama";
-import type { OpenAICompletionsOptions } from "./providers/openai-completions";
 import type { BedrockOptions } from "./providers/amazon-bedrock";
 import type { AnthropicOptions } from "./providers/anthropic";
-import type { CursorOptions } from "./providers/cursor";
-import type { DevinOptions } from "./providers/devin";
 import type { GoogleOptions } from "./providers/google";
 import type { GoogleGeminiCliOptions } from "./providers/google-gemini-cli";
 import type { GoogleVertexOptions } from "./providers/google-vertex";
-import {
-	streamOllama,
-	streamOpenAICompletions,
-	streamOpenAIResponses,
-} from "./providers/register-builtins";
+import type { OllamaChatOptions } from "./providers/ollama";
+import type { OpenAICompletionsOptions } from "./providers/openai-completions";
+import { streamOllama, streamOpenAICompletions, streamOpenAIResponses } from "./providers/register-builtins";
 import { isSyntheticModel, streamSynthetic } from "./providers/synthetic";
 import { PROVIDER_REGISTRY } from "./registry";
 import type {
@@ -51,7 +45,6 @@ import { AssistantMessageEventStream } from "./utils/event-stream";
 import { wrapLeakedThinkingStream } from "./utils/leaked-thinking-stream";
 import { wrapFetchForProxy } from "./utils/proxy";
 import { withRequestDebugFetch } from "./utils/request-debug";
-
 
 /**
  * Apply live leaked-thinking healing to all streams.
@@ -521,9 +514,6 @@ function withProviderInFlightLimit<TOptions extends Pick<StreamOptions, "signal"
 	return outer;
 }
 
-
-
-
 type KeyResolver = string | (() => string | undefined);
 
 const LEGACY_ENV_KEYS: Record<string, KeyResolver> = {
@@ -878,11 +868,12 @@ export function streamSimple<TApi extends Api>(
 		return outer;
 	}
 
-
 	// Check custom API registry (extension-provided APIs)
 	const customApiProvider = getCustomApi(model.api);
 	if (customApiProvider) {
-		return withProviderInFlightLimit(model, requestOptions, () => customApiProvider.streamSimple(model, context, requestOptions));
+		return withProviderInFlightLimit(model, requestOptions, () =>
+			customApiProvider.streamSimple(model, context, requestOptions),
+		);
 	}
 
 	// Synthetic - route to dedicated handler
@@ -890,13 +881,22 @@ export function streamSimple<TApi extends Api>(
 		return withProviderInFlightLimit(model, requestOptions, () =>
 			streamSynthetic(model as Model<"openai-completions">, context, {
 				...requestOptions,
-				apiKey: (typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) || getEnvApiKey(model.provider) || "",
+				apiKey:
+					(typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) ||
+					getEnvApiKey(model.provider) ||
+					"",
 				format: requestOptions?.syntheticApiFormat ?? "openai",
 			}),
 		);
 	}
 
-	const providerOptions = mapOptionsForApi(model, requestOptions, (typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) || getEnvApiKey(model.provider) || "");
+	const providerOptions = mapOptionsForApi(
+		model,
+		requestOptions,
+		(typeof requestOptions?.apiKey === "string" ? requestOptions.apiKey : undefined) ||
+			getEnvApiKey(model.provider) ||
+			"",
+	);
 	return stream(model, context, providerOptions);
 }
 

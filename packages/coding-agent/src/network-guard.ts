@@ -80,10 +80,7 @@ function loadAllowedHostsFromConfig(): void {
 	const agentDir = getAgentDir();
 
 	// Try models.yml first, then models.json
-	const paths = [
-		path.join(agentDir, "models.yml"),
-		path.join(agentDir, "models.json"),
-	];
+	const paths = [path.join(agentDir, "models.yml"), path.join(agentDir, "models.json")];
 
 	for (const configPath of paths) {
 		try {
@@ -157,9 +154,9 @@ export function installNetworkGuard(): void {
 		if (host && !isHostAllowed(host)) {
 			const error = new Error(
 				`[network-guard] 请求被阻止 / Request blocked: ${url}\n` +
-				`  目标主机 "${host}" 不在白名单中。\n` +
-				`  Host "${host}" is not in the allowlist.\n` +
-				`  如需访问此地址，请在 models.json 中添加 "allowedHosts" 配置。`,
+					`  目标主机 "${host}" 不在白名单中。\n` +
+					`  Host "${host}" is not in the allowlist.\n` +
+					`  如需访问此地址，请在 models.json 中添加 "allowedHosts" 配置。`,
 			);
 			logger.warn("network-guard: blocked outbound request", { url, host });
 			return Promise.reject(error);

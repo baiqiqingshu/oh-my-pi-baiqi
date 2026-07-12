@@ -5,10 +5,7 @@ import type { Effort } from "./effort";
 export type { FetchImpl } from "@oh-my-pi/pi-utils";
 export type { KnownProvider } from "./provider-models/descriptors";
 
-export type KnownApi =
-	| "openai-completions"
-	| "openai-responses"
-	| "ollama-chat";
+export type KnownApi = "openai-completions" | "openai-responses" | "ollama-chat";
 export type Api = KnownApi | (string & {});
 
 /** Canonical thinking transport used by a model. */

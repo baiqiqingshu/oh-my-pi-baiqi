@@ -18,7 +18,11 @@ import type { InteractiveModeContext } from "../types";
 export { CURRENT_SETUP_VERSION };
 
 // Re-export types for backward compatibility
-export type SetupScene = { id: string; minVersion: number; shouldRun?: (ctx: InteractiveModeContext) => Promise<boolean> };
+export type SetupScene = {
+	id: string;
+	minVersion: number;
+	shouldRun?: (ctx: InteractiveModeContext) => Promise<boolean>;
+};
 export type SetupSceneController = unknown;
 export type SetupSceneHost = unknown;
 export type SetupSceneResult = unknown;
@@ -105,7 +109,7 @@ export function checkModelsConfig(): { valid: boolean; configPath: string; error
 		}
 
 		return { valid: true, configPath: usedPath };
-	} catch (e) {
+	} catch {
 		return { valid: false, configPath: usedPath, error: "parse_error" };
 	}
 }

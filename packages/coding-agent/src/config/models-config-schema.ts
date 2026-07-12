@@ -71,9 +71,7 @@ export const OpenAICompatSchema = type({
 	"whenThinking?": OpenAICompatFieldsSchema,
 });
 
-const ApiSchema = type(
-	'"openai-completions" | "openai-responses" | "ollama-chat"',
-);
+const ApiSchema = type('"openai-completions" | "openai-responses" | "ollama-chat"');
 
 const EffortSchema = type('"minimal" | "low" | "medium" | "high" | "xhigh" | "max"');
 

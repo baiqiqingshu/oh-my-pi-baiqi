@@ -105,6 +105,9 @@ jobs:
           cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17
         env:
           CARGO_PROFILE: ci
+          # `zig cc -O3` defines NDEBUG, while tree-sitter-just requires
+          # assertions enabled in its C scanner.
+          CFLAGS_x86_64_unknown_linux_gnu: -UNDEBUG
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v4
