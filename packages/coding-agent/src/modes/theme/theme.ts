@@ -218,7 +218,6 @@ export type SymbolKey =
 	| "tool.ssh"
 	| "tool.lsp"
 	| "tool.gh"
-	| "tool.webSearch"
 	| "tool.exa"
 	| "tool.browser"
 	| "tool.eval"
@@ -426,7 +425,6 @@ const UNICODE_SYMBOLS: SymbolMap = {
 	"tool.ssh": "⇄",
 	"tool.lsp": "💡",
 	"tool.gh": "⎇",
-	"tool.webSearch": "⌕",
 	"tool.exa": "🔭",
 	"tool.browser": "🌐",
 	"tool.eval": "▶",
@@ -735,7 +733,6 @@ const NERD_SYMBOLS: SymbolMap = {
 	"tool.ssh": "\uEB3A",
 	"tool.lsp": "\uEA61",
 	"tool.gh": "\uEA84",
-	"tool.webSearch": "\uEB01",
 	"tool.exa": "\uEB68",
 	"tool.browser": "\uEAAE",
 	"tool.eval": "\uEBAF",
@@ -939,7 +936,6 @@ const ASCII_SYMBOLS: SymbolMap = {
 	"tool.ssh": "ssh",
 	"tool.lsp": "lsp",
 	"tool.gh": "gh",
-	"tool.webSearch": "web",
 	"tool.exa": "exa",
 	"tool.browser": "[w]",
 	"tool.eval": ">_",

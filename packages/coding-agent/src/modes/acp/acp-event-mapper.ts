@@ -148,8 +148,6 @@ export function mapToolKind(toolName: string): ToolKind {
 		case "glob":
 		case "ast_grep":
 			return "search";
-		case "web_search":
-			return "fetch";
 		case "todo":
 			return "think";
 		default:

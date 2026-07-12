@@ -150,7 +150,7 @@ export function workerEnvFromParent(overlay?: Record<string, string>): Record<st
  * `ReadableStream` pipes: even an unref'd child with a piped stderr stream can
  * keep the parent event loop alive. After the worker exits, the last
  * {@link STDERR_TAIL_LIMIT_BYTES} are appended to the `onExit` error so
- * `tts/mnemopi/…: worker error` lines carry the actual stack instead of a bare
+ * `tiny/mnemopi worker error` lines carry the actual stack instead of a bare
  * exit code (issue #4324). The child is `unref`'d outside `bun test` so an idle
  * worker never blocks process exit. `exitLabel` prefixes the worker-error
  * message surfaced for an unexpected (non-intentional) exit.

@@ -169,23 +169,17 @@ import {
 	filterInitialToolsForDiscoveryAll,
 	GlobTool,
 	GrepTool,
-	getSearchTools,
 	HIDDEN_TOOLS,
 	isImageProviderPreference,
-	isSearchProviderId,
-	isSearchProviderPreference,
 	type LspStartupServerInfo,
 	loadSshTool,
 	ReadTool,
 	ResolveTool,
 	renderSearchToolBm25Description,
 	SearchToolBm25Tool,
-	setExcludedSearchProviders,
 	setPreferredImageProvider,
-	setPreferredSearchProvider,
 	type Tool,
 	type ToolSession,
-	WebSearchTool,
 	WriteTool,
 	warmupLspServers,
 } from "./tools";
@@ -195,7 +189,6 @@ import { getImageGenTools } from "./tools/image-gen";
 import { isIrcEnabled } from "./tools/irc";
 import { wrapToolWithMetaNotice } from "./tools/output-meta";
 import { queueResolveHandler } from "./tools/resolve";
-import { ttsTool } from "./tools/tts";
 import { resolveActiveRepoContext } from "./utils/active-repo-context";
 import { EventBus } from "./utils/event-bus";
 import { buildNamedToolChoice } from "./utils/tool-choice";
@@ -639,7 +632,6 @@ export {
 	ReadTool,
 	ResolveTool,
 	type ToolSession,
-	WebSearchTool,
 	WriteTool,
 };
 
@@ -1203,17 +1195,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			: undefined;
 	discoveredSkillsPromise?.catch(() => {});
 
-	// Initialize provider preferences from settings
-	const excludedWebSearchProviders = settings.get("providers.webSearchExclude");
-	if (Array.isArray(excludedWebSearchProviders)) {
-		setExcludedSearchProviders(excludedWebSearchProviders.filter(isSearchProviderId));
-	}
-
-	const webSearchProvider = settings.get("providers.webSearch");
-	if (typeof webSearchProvider === "string" && isSearchProviderPreference(webSearchProvider)) {
-		setPreferredSearchProvider(webSearchProvider);
-	}
-
 	const imageProvider = settings.get("providers.image");
 	if (isImageProviderPreference(imageProvider)) {
 		setPreferredImageProvider(imageProvider);
@@ -1718,8 +1699,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			enableProjectConfig: settings.get("mcp.enableProjectConfig") ?? true,
 			// Always filter Exa - we have native integration
 			filterExa: true,
-			// Filter browser MCP servers when builtin browser tool is active
-			filterBrowser: settings.get("browser.enabled") ?? false,
+			filterBrowser: false,
 		};
 		if (enableMCP && !mcpManager) {
 			if (deferMCPDiscoveryForUI) {
@@ -1816,15 +1796,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		const imageGenTools = await logger.time("getImageGenTools", () => getImageGenTools(modelRegistry, model));
 		if (imageGenTools.length > 0) {
 			customTools.push(...(imageGenTools as unknown as CustomTool[]));
-		}
-
-		if (settings.get("speechgen.enabled")) {
-			customTools.push(ttsTool as unknown as CustomTool);
-		}
-
-		// Add web search tools
-		if (options.toolNames?.includes("web_search")) {
-			customTools.push(...getSearchTools());
 		}
 
 		// Discover custom tools from `.omp/tools/`, `.claude/tools/`, plugins, etc.
@@ -2266,8 +2237,8 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		// `resolve` is hidden but must stay in the registry whenever any code path can invoke it:
 		// either a deferrable tool stages a preview action, or plan mode installs a standing handler
 		// that consumes `resolve { action: "apply" }` to submit the plan for approval (issue #1428).
-		// Dropping it on read-only sessions (e.g. plan-mode toolset `read`, `search`, `find`,
-		// `web_search`) leaves plan mode unable to exit through the intended path.
+		// Dropping it on read-only sessions (e.g. plan-mode toolset `read`, `search`, `find`)
+		// leaves plan mode unable to exit through the intended path.
 		const hasDeferrableTools = Array.from(toolRegistry.values()).some(tool => tool.deferrable === true);
 		const planModeAvailable = settings.get("plan.enabled");
 		const needsResolveTool = hasDeferrableTools || planModeAvailable;

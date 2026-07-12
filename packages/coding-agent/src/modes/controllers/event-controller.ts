@@ -27,8 +27,6 @@ import { isSilentAbort, readQueueChipText, resolveAbortLabel } from "../../sessi
 import { previewLine, TRUNCATE_LENGTHS } from "../../tools/render-utils";
 import type { ResolveToolDetails } from "../../tools/resolve";
 import { nextActionableTask } from "../../tools/todo";
-import { SpeechEnhancer } from "../../tts/speech-enhancer";
-import { vocalizer } from "../../tts/vocalizer";
 import { canonicalizeMessage } from "../../utils/thinking-display";
 import { interruptHint } from "../shared";
 import { createAssistantMessageComponent } from "../utils/interactive-context-helpers";
@@ -115,21 +113,6 @@ export class EventController {
 	#terminalProgressActive = false;
 
 	constructor(private ctx: InteractiveModeContext) {
-		// Enhanced speech (`speech.enhanced`) rewrites blocks through the
-		// tiny/smol role with this session's registry and credentials; the
-		// vocalizer falls back to mechanical cleanup when unset. Tolerates
-		// partial contexts (tests, minimal embeddings) by wiring null.
-		const session = ctx.session;
-		vocalizer.setEnhancer(
-			session?.modelRegistry && session.agent && session.settings
-				? new SpeechEnhancer({
-						settings: session.settings,
-						registry: session.modelRegistry,
-						sessionId: session.sessionId,
-						metadataResolver: provider => session.agent.metadataForProvider(provider),
-					})
-				: null,
-		);
 		this.#streamingReveal = new StreamingRevealController({
 			getSmoothStreaming: () => this.ctx.settings.get("display.smoothStreaming"),
 			getHideThinkingBlock: () => this.ctx.effectiveHideThinkingBlock,
@@ -143,8 +126,6 @@ export class EventController {
 		this.#handlers = {
 			agent_start: e => this.#handleAgentStart(e),
 			agent_end: e => this.#handleAgentEnd(e),
-			turn_start: async () => this.#handleTurnStart(),
-			turn_end: async e => this.#handleTurnEnd(e),
 			message_start: e => this.#handleMessageStart(e),
 			message_update: e => this.#handleMessageUpdate(e),
 			message_end: e => this.#handleMessageEnd(e),
@@ -599,48 +580,8 @@ export class EventController {
 		}
 	}
 
-	/** A new turn interrupts any speech still queued/playing from the previous one. */
-	#handleTurnStart(): void {
-		vocalizer.clear();
-	}
-
-	/**
-	 * Speak streamed assistant output as a side effect of the turn. The mode
-	 * decides which deltas feed the vocalizer (the vocalizer re-checks enabled):
-	 * assistant|all speak text; all also speaks thinking; yield speaks nothing
-	 * live (the final message is spoken at turn end).
-	 */
-	#vocalizeDelta(event: Extract<AgentSessionEvent, { type: "message_update" }>): void {
-		if (!settings.get("speech.enabled")) return;
-		const mode = settings.get("speech.mode");
-		const delta = event.assistantMessageEvent;
-		if (delta.type === "text_delta" && (mode === "assistant" || mode === "all")) {
-			vocalizer.pushDelta(delta.delta);
-		} else if (delta.type === "thinking_delta" && mode === "all") {
-			vocalizer.pushDelta(delta.delta);
-		}
-	}
-
-	/**
-	 * End-of-turn vocalization: yield mode speaks the final assistant message in
-	 * one shot here (the only mode that is post-hoc); every other mode just makes
-	 * sure the live buffer's trailing partial gets flushed.
-	 */
-	#handleTurnEnd(event: Extract<AgentSessionEvent, { type: "turn_end" }>): void {
-		if (!settings.get("speech.enabled")) return;
-		if (settings.get("speech.mode") !== "yield") {
-			vocalizer.flush();
-			return;
-		}
-		if (event.message.role !== "assistant") return;
-		if (event.message.stopReason === "aborted") return; // interrupted: never speak the aborted partial
-		const text = extractTextContent(event.message);
-		if (text) vocalizer.speak(text);
-	}
-
 	async #handleMessageUpdate(event: Extract<AgentSessionEvent, { type: "message_update" }>): Promise<void> {
 		this.#ensureWorkingLoaderWhileStreaming();
-		this.#vocalizeDelta(event);
 		if (this.ctx.streamingComponent && event.message.role === "assistant") {
 			const unlockedThinkingVisibility = this.ctx.noteDisplayableThinkingContent(event.message);
 			if (unlockedThinkingVisibility) {
@@ -779,17 +720,6 @@ export class EventController {
 		if (unlockedThinkingVisibility && this.ctx.streamingComponent) {
 			this.ctx.streamingComponent.setHideThinkingBlock(this.ctx.effectiveHideThinkingBlock);
 			this.#streamingReveal.resyncVisibility();
-		}
-		if (event.message.role === "assistant" && settings.get("speech.enabled")) {
-			if (event.message.stopReason === "aborted") {
-				// Esc / Ctrl+C / interrupt: stop speaking now and drop the trailing partial.
-				vocalizer.clear();
-			} else {
-				const mode = settings.get("speech.mode");
-				// Speak the last partial sentence of a completed message; yield mode
-				// instead speaks the whole final message at turn end.
-				if (mode === "assistant" || mode === "all") vocalizer.flush();
-			}
 		}
 		if (this.ctx.streamingComponent && event.message.role === "assistant") {
 			this.ctx.streamingMessage = event.message;

@@ -1786,7 +1786,7 @@ describe("advisor", () => {
 			modelRegistry: {} as unknown as ModelRegistry,
 			settings: {} as unknown as Settings,
 			scopedModels: [],
-			availableToolNames: ["read", "grep", "glob", "lsp", "web_search"],
+			availableToolNames: ["read", "grep", "glob", "lsp"],
 		};
 		const callbacks = {
 			loadDoc: async () => ({ advisors: [] }),
@@ -1808,7 +1808,7 @@ describe("advisor", () => {
 				instructions: "shared baseline",
 				advisors: [
 					{ name: "Architecture", model: "x-ai/grok-code-fast:high" },
-					{ name: "Security", tools: ["read", "web_search"] },
+					{ name: "Security", tools: ["read", "grep"] },
 				],
 			});
 			const frame = overlay.render(200);
@@ -1845,11 +1845,11 @@ describe("advisor", () => {
 			if (!uiTheme) throw new Error("theme unavailable");
 			setThemeInstance(uiTheme);
 			const overlay = make({
-				advisors: [{ name: "Architecture" }, { name: "Security", tools: ["read", "web_search"] }],
+				advisors: [{ name: "Architecture" }, { name: "Security", tools: ["read", "grep"] }],
 			});
 			overlay.render(200);
 			overlay.handleInput("\x1b[B"); // arrow down → highlight Security
-			expect(strip(overlay.render(200))).toContain("read, web_search");
+			expect(strip(overlay.render(200))).toContain("read, grep");
 		});
 
 		it("opens an advisor's detail editor on a left click in the sidebar", async () => {

@@ -2,40 +2,8 @@ import { THINKING_EFFORTS } from "@oh-my-pi/pi-ai";
 import { DEFAULT_SHARE_URL } from "@oh-my-pi/pi-wire";
 import { SHAPE_VARIANT_NAMES } from "@oh-my-pi/snapcompact";
 import { DEFAULT_RELAY_URL } from "../collab/protocol";
-import { DEFAULT_STT_MODEL_KEY, STT_MODEL_OPTIONS, STT_MODEL_VALUES } from "../stt/models";
-import { STT_SUBMIT_TRIGGER_OPTIONS, STT_SUBMIT_TRIGGER_VALUES } from "../stt/submit-trigger";
 import { AUTO_THINKING, getConfiguredThinkingLevelMetadata, getThinkingLevelMetadata } from "../thinking";
-import {
-	TINY_MODEL_DEVICE_DEFAULT,
-	TINY_MODEL_DEVICE_SETTING_OPTIONS,
-	TINY_MODEL_DEVICE_SETTING_VALUES,
-} from "../tiny/device";
-import {
-	TINY_MODEL_DTYPE_DEFAULT,
-	TINY_MODEL_DTYPE_SETTING_OPTIONS,
-	TINY_MODEL_DTYPE_SETTING_VALUES,
-} from "../tiny/dtype";
-import {
-	AUTO_THINKING_MODEL_OPTIONS,
-	AUTO_THINKING_MODEL_VALUES,
-	ONLINE_AUTO_THINKING_MODEL_KEY,
-	ONLINE_MEMORY_MODEL_KEY,
-	ONLINE_TINY_TITLE_MODEL_KEY,
-	TINY_MEMORY_MODEL_OPTIONS,
-	TINY_MEMORY_MODEL_VALUES,
-	TINY_TITLE_MODEL_OPTIONS,
-	TINY_TITLE_MODEL_VALUES,
-} from "../tiny/models";
-import {
-	DEFAULT_TTS_LOCAL_MODEL_KEY,
-	DEFAULT_TTS_VOICE,
-	TTS_LOCAL_MODEL_OPTIONS,
-	TTS_LOCAL_MODEL_VALUES,
-	TTS_LOCAL_VOICE_OPTIONS,
-	TTS_LOCAL_VOICE_VALUES,
-} from "../tts/models";
 import { EDIT_MODES } from "../utils/edit-mode";
-import { SEARCH_PROVIDER_OPTIONS, SEARCH_PROVIDER_PREFERENCES, type SearchProviderId } from "../web/search/types";
 import {
 	SERVICE_TIER_ANTHROPIC_OPTIONS,
 	SERVICE_TIER_ANTHROPIC_VALUES,
@@ -1821,50 +1789,6 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
-	// Speech-to-text
-	"stt.enabled": {
-		type: "boolean",
-		default: false,
-		ui: {
-			tab: "interaction",
-			group: "Speech",
-			label: "Speech-to-Text",
-			description: "Enable speech-to-text input via microphone",
-		},
-	},
-
-	"stt.language": {
-		type: "string",
-		default: "en",
-	},
-
-	"stt.modelName": {
-		type: "enum",
-		values: STT_MODEL_VALUES,
-		default: DEFAULT_STT_MODEL_KEY,
-		ui: {
-			tab: "interaction",
-			group: "Speech",
-			label: "Speech Model",
-			description:
-				"Local on-device speech model. Parakeet TDT v3 (sherpa-onnx) is the SoTA default; Whisper base/small/large-v3-turbo tiers (transformers.js) trade size for multilingual coverage. Downloaded on first use.",
-			options: STT_MODEL_OPTIONS,
-		},
-	},
-	"stt.submitTrigger": {
-		type: "enum",
-		values: STT_SUBMIT_TRIGGER_VALUES,
-		default: "never",
-		ui: {
-			tab: "interaction",
-			group: "Speech",
-			label: "Speech-to-Text Submit Trigger",
-			description:
-				"Choose when speech dictation automatically submits: Never, Release (2+ words), Release with complete sentence, or When I Say Submit.",
-			options: STT_SUBMIT_TRIGGER_OPTIONS,
-		},
-	},
-
 	// ────────────────────────────────────────────────────────────────────────
 	// Context
 	// ────────────────────────────────────────────────────────────────────────
@@ -2462,31 +2386,6 @@ export const SETTINGS_SCHEMA = {
 			condition: "mnemopiActive",
 		},
 	},
-	"mnemopi.embeddingVariant": {
-		type: "enum",
-		values: ["en", "multilingual"] as const,
-		default: "en",
-		ui: {
-			tab: "memory",
-			group: "Mnemopi",
-			label: "Embedding variant",
-			description:
-				"Local embedding model family. en = stronger English model; multilingual = cross-language model. Changing this rebuilds existing memory embeddings on next start.",
-			options: [
-				{
-					value: "en",
-					label: "English (bge-base-en-v1.5)",
-					description: "BAAI/bge-base-en-v1.5 (768d), English-only",
-				},
-				{
-					value: "multilingual",
-					label: "Multilingual (multilingual-e5-large)",
-					description: "intfloat/multilingual-e5-large (1024d), cross-language recall",
-				},
-			],
-			condition: "mnemopiActive",
-		},
-	},
 	"mnemopi.autoRecall": {
 		type: "boolean",
 		default: true,
@@ -2561,8 +2460,7 @@ export const SETTINGS_SCHEMA = {
 			tab: "memory",
 			group: "Mnemopi",
 			label: "Mnemopi Embedding Model",
-			description:
-				"Advanced: explicit embedding model id that overrides the variant. Leave empty to use mnemopi.embeddingVariant.",
+			description: "Embedding model id for the configured OpenAI-compatible endpoint",
 			condition: "mnemopiActive",
 		},
 	},
@@ -3518,17 +3416,6 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
-	"speechgen.enabled": {
-		type: "boolean",
-		default: false,
-		ui: {
-			tab: "tools",
-			group: "Available Tools",
-			label: "Speech Generation",
-			description: "Enable the tts tool for on-device (Kokoro) or xAI Grok Voice speech-file synthesis",
-		},
-	},
-
 	"inspect_image.enabled": {
 		type: "boolean",
 		default: false,
@@ -3622,17 +3509,6 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
-	"web_search.enabled": {
-		type: "boolean",
-		default: false,
-		ui: {
-			tab: "tools",
-			group: "Available Tools",
-			label: "Web Search",
-			description: "Enable the web_search tool for live web results",
-		},
-	},
-
 	"ask.enabled": {
 		type: "boolean",
 		default: true,
@@ -3641,51 +3517,6 @@ export const SETTINGS_SCHEMA = {
 			group: "Available Tools",
 			label: "Ask",
 			description: "Enable the ask tool for interactive user questions",
-		},
-	},
-
-	"browser.enabled": {
-		type: "boolean",
-		default: true,
-		ui: {
-			tab: "tools",
-			group: "Available Tools",
-			label: "Browser",
-			description: "Enable the browser tool for scripted Chromium automation (puppeteer)",
-		},
-	},
-
-	"browser.headless": {
-		type: "boolean",
-		default: true,
-		ui: {
-			tab: "tools",
-			group: "Grep & Browser",
-			label: "Headless Browser",
-			description: "Launch browser in headless mode (disable to show browser UI)",
-		},
-	},
-
-	"browser.cmux": {
-		type: "boolean",
-		default: true,
-		ui: {
-			tab: "tools",
-			group: "Grep & Browser",
-			label: "cmux Browser",
-			description:
-				"Use cmux WKWebView surfaces for browser automation when a cmux socket is available. Set PI_BROWSER_CMUX=0 or PI_BROWSER_CMUX=1 to override.",
-		},
-	},
-	"browser.screenshotDir": {
-		type: "string",
-		default: undefined,
-		ui: {
-			tab: "tools",
-			group: "Grep & Browser",
-			label: "Screenshot Directory",
-			description:
-				"Directory to save screenshots. If unset, screenshots go to a temp file. Supports ~. Examples: ~/Downloads, ~/Desktop, /sdcard/Download (Android)",
 		},
 	},
 
@@ -4329,38 +4160,6 @@ export const SETTINGS_SCHEMA = {
 				"Maximum concurrent Ollama Cloud subagent runs per process; 0 disables the provider-specific limit",
 		},
 	},
-	"providers.webSearch": {
-		type: "enum",
-		values: SEARCH_PROVIDER_PREFERENCES,
-		default: "auto",
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Web Search Provider",
-			description: "Preferred provider for the web_search tool",
-			options: SEARCH_PROVIDER_OPTIONS,
-		},
-	},
-	"providers.webSearchExclude": {
-		type: "array",
-		default: [] as SearchProviderId[],
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Excluded Web Search Providers",
-			description: "Providers that web_search should never use, even as fallbacks",
-		},
-	},
-	"providers.webSearchGeminiModel": {
-		type: "string",
-		default: undefined,
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Gemini web_search model",
-			description: "Model ID for Gemini Google Search grounding. Defaults to gemini-2.5-flash.",
-		},
-	},
 	"providers.antigravityEndpoint": {
 		type: "enum",
 		values: ["auto", "production", "sandbox"] as const,
@@ -4464,148 +4263,6 @@ export const SETTINGS_SCHEMA = {
 			],
 		},
 	},
-	"tts.localModel": {
-		type: "enum",
-		values: TTS_LOCAL_MODEL_VALUES,
-		default: DEFAULT_TTS_LOCAL_MODEL_KEY,
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Local TTS Model",
-			description: "On-device neural TTS model (Kokoro-82M) used by the local TTS backend",
-			options: TTS_LOCAL_MODEL_OPTIONS,
-		},
-	},
-	"tts.localVoice": {
-		type: "enum",
-		values: TTS_LOCAL_VOICE_VALUES,
-		default: DEFAULT_TTS_VOICE,
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Local TTS Voice",
-			description: "Kokoro voice used by the local TTS backend (American/British, female/male)",
-			options: TTS_LOCAL_VOICE_OPTIONS,
-		},
-	},
-	"speech.enabled": {
-		type: "boolean",
-		default: false,
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Speech Vocalization",
-			description: "Speak the assistant's output aloud through the speakers as it streams",
-		},
-	},
-	"speech.mode": {
-		type: "enum",
-		values: ["all", "assistant", "yield"] as const,
-		default: "assistant",
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Speech Vocalization Mode",
-			description:
-				"What to speak: all = assistant messages + thinking; assistant = messages only; yield = only the final message at turn end",
-			options: [
-				{ value: "all", label: "All (messages + thinking)" },
-				{ value: "assistant", label: "Assistant messages" },
-				{ value: "yield", label: "Final message only" },
-			],
-		},
-	},
-	"speech.enhanced": {
-		type: "boolean",
-		default: false,
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Enhanced Speech Rewriting",
-			description:
-				"Rewrite assistant output into natural spoken prose with the tiny/smol model before synthesis (describes code, drops links and markdown). Falls back to mechanical cleanup on failure",
-		},
-	},
-	"speech.voice": {
-		type: "enum",
-		values: TTS_LOCAL_VOICE_VALUES,
-		default: DEFAULT_TTS_VOICE,
-		ui: {
-			tab: "providers",
-			group: "Services",
-			label: "Speech Vocalization Voice",
-			description: "Kokoro voice used when speaking the assistant's output aloud",
-			options: TTS_LOCAL_VOICE_OPTIONS,
-		},
-	},
-	"providers.tinyModel": {
-		type: "enum",
-		values: TINY_TITLE_MODEL_VALUES,
-		default: ONLINE_TINY_TITLE_MODEL_KEY,
-		ui: {
-			tab: "providers",
-			group: "Tiny Model",
-			label: "Tiny Model",
-			description:
-				"Session-title model: online (the TINY role from /models, else pi/smol) by default, or a local on-device model",
-			options: TINY_TITLE_MODEL_OPTIONS,
-		},
-	},
-	"providers.tinyModelDevice": {
-		type: "enum",
-		values: TINY_MODEL_DEVICE_SETTING_VALUES,
-		default: TINY_MODEL_DEVICE_DEFAULT,
-		ui: {
-			tab: "providers",
-			group: "Tiny Model",
-			label: "Tiny Model Device",
-			description:
-				"ONNX execution provider for local tiny models (titles + memory). Default uses CPU-only inference. The PI_TINY_DEVICE env var overrides this.",
-			options: TINY_MODEL_DEVICE_SETTING_OPTIONS,
-		},
-	},
-	"providers.tinyModelDtype": {
-		type: "enum",
-		values: TINY_MODEL_DTYPE_SETTING_VALUES,
-		default: TINY_MODEL_DTYPE_DEFAULT,
-		ui: {
-			tab: "providers",
-			group: "Tiny Model",
-			label: "Tiny Model Precision",
-			description:
-				"ONNX quantization/precision for local tiny models. Default uses each model's shipped dtype (q4); lower precision is faster, higher is more faithful. The PI_TINY_DTYPE env var overrides this.",
-			options: TINY_MODEL_DTYPE_SETTING_OPTIONS,
-		},
-	},
-	"providers.memoryModel": {
-		type: "enum",
-		values: TINY_MEMORY_MODEL_VALUES,
-		default: ONLINE_MEMORY_MODEL_KEY,
-		ui: {
-			tab: "memory",
-			group: "General",
-			label: "Memory Model",
-			description:
-				"Mnemopi LLM for fact extraction + consolidation: online (the TINY role from /models, else smol/remote) by default, or a local on-device model",
-			condition: "mnemopiActive",
-			options: TINY_MEMORY_MODEL_OPTIONS,
-		},
-	},
-
-	"providers.autoThinkingModel": {
-		type: "enum",
-		values: AUTO_THINKING_MODEL_VALUES,
-		default: ONLINE_AUTO_THINKING_MODEL_KEY,
-		ui: {
-			tab: "model",
-			group: "Thinking",
-			label: "Auto Thinking Model",
-			description:
-				"Difficulty classifier for the `auto` thinking level: online (the TINY role from /models, else smol) by default, or a local on-device model",
-			condition: "autoThinkingActive",
-			options: AUTO_THINKING_MODEL_OPTIONS,
-		},
-	},
 	"features.unexpectedStopDetection": {
 		type: "boolean",
 		default: false,
@@ -4617,21 +4274,6 @@ export const SETTINGS_SCHEMA = {
 				"Use a small model to detect when the assistant says it will continue but stops without tool calls; automatically prompt it to continue.",
 		},
 	},
-	"providers.unexpectedStopModel": {
-		type: "enum",
-		values: TINY_MEMORY_MODEL_VALUES,
-		default: ONLINE_MEMORY_MODEL_KEY,
-		ui: {
-			tab: "providers",
-			group: "Tiny Model",
-			label: "Unexpected Stop Model",
-			description:
-				"Classifier for unexpected-stop detection: online (the TINY role from /models, else smol) by default, or a local on-device model.",
-			condition: "unexpectedStopDetection",
-			options: TINY_MEMORY_MODEL_OPTIONS,
-		},
-	},
-
 	"providers.kimiApiFormat": {
 		type: "enum",
 		values: ["openai", "anthropic"] as const,

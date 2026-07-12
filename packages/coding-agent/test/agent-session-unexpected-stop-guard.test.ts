@@ -157,7 +157,6 @@ describe("AgentSession unexpected stop guard", () => {
 			],
 			{
 				"features.unexpectedStopDetection": true,
-				"providers.unexpectedStopModel": "online",
 			},
 		);
 
@@ -176,7 +175,6 @@ describe("AgentSession unexpected stop guard", () => {
 			[unexpectedStop("I should apply the same fix to the JS eval worker. Doing that now.")],
 			{
 				"features.unexpectedStopDetection": true,
-				"providers.unexpectedStopModel": "online",
 			},
 		);
 
@@ -200,7 +198,6 @@ describe("AgentSession unexpected stop guard", () => {
 			],
 			{
 				"features.unexpectedStopDetection": true,
-				"providers.unexpectedStopModel": "online",
 			},
 		);
 
@@ -219,7 +216,6 @@ describe("AgentSession unexpected stop guard", () => {
 			[recordCall("alpha", "call-record-alpha"), { content: ["tool path complete"], stopReason: "aborted" }],
 			{
 				"features.unexpectedStopDetection": true,
-				"providers.unexpectedStopModel": "online",
 			},
 		);
 
@@ -237,7 +233,6 @@ describe("AgentSession unexpected stop guard", () => {
 			[{ content: ["I should continue but hit the length limit"], stopReason: "length" }],
 			{
 				"features.unexpectedStopDetection": true,
-				"providers.unexpectedStopModel": "online",
 			},
 		);
 

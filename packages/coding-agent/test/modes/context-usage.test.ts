@@ -23,10 +23,10 @@ describe("estimateToolSchemaTokens", () => {
 			"limit?": "number",
 		});
 		const arktypeEstimate = estimateToolSchemaTokens([
-			{ name: "web_search", description: "Searches the web.", parameters } as never,
+			{ name: "lookup", description: "Looks up a value.", parameters } as never,
 		]);
 		const wireEstimate = estimateToolSchemaTokens([
-			{ name: "web_search", description: "Searches the web.", parameters: arkToWireSchema(parameters) } as never,
+			{ name: "lookup", description: "Looks up a value.", parameters: arkToWireSchema(parameters) } as never,
 		]);
 		expect(arktypeEstimate).toBe(wireEstimate);
 	});

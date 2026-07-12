@@ -242,7 +242,6 @@ import type { HindsightSessionState } from "../hindsight/state";
 import { type LocalProtocolOptions, resolveLocalUrlToPath } from "../internal-urls";
 import { IrcBus, type IrcMessage } from "../irc/bus";
 import { resolveMemoryBackend } from "../memory-backend";
-import { shutdownMnemopiEmbedClient } from "../mnemopi/embed-client";
 import { getMnemopiSessionState, type MnemopiSessionState, setMnemopiSessionState } from "../mnemopi/state";
 import { containsOrchestrate, ORCHESTRATE_NOTICE } from "../modes/orchestrate";
 import { theme } from "../modes/theme/theme";
@@ -300,7 +299,6 @@ import {
 	toReasoningEffort,
 } from "../thinking";
 import { formatTitleConversationContext, type TitleConversationTurn } from "../tiny/message-preproc";
-import { shutdownTinyTitleClient } from "../tiny/title-client";
 import { countToolsForAutoDiscovery, resolveEffectiveToolDiscoveryMode } from "../tool-discovery/mode";
 import {
 	buildDiscoverableToolSearchIndex,
@@ -312,7 +310,6 @@ import {
 	selectDiscoverableToolNamesByServer,
 } from "../tool-discovery/tool-index";
 import { assertEditableFile } from "../tools/auto-generated-guard";
-import { releaseTabsForOwner } from "../tools/browser/tab-supervisor";
 import { normalizeToolNames } from "../tools/builtin-names";
 import type { CheckpointState, CompletedRewindState } from "../tools/checkpoint";
 import { outputMeta, wrapToolWithMetaNotice } from "../tools/output-meta";
@@ -5855,22 +5852,6 @@ export class AgentSession {
 		// reuse) and touch only what THIS session created. Bounded so a broken
 		// CDP close cannot stall `/exit`; mirrors the async-job/MCP pattern.
 		// (Issue #3963.)
-		const browserOwnerId = this.sessionManager.getSessionId();
-		if (browserOwnerId) {
-			try {
-				const released = await withTimeout(
-					releaseTabsForOwner(browserOwnerId, { kill: true }),
-					3_000,
-					"Timed out releasing owned browser tabs during dispose",
-				);
-				if (released > 0) {
-					logger.debug("Released owned browser tabs during dispose", { ownerId: browserOwnerId, released });
-				}
-			} catch (error) {
-				logger.warn("Failed to release owned browser tabs during dispose", { error: String(error) });
-			}
-		}
-		await shutdownTinyTitleClient();
 		this.#releasePowerAssertion();
 		// Clean up an empty session created by this session's /move so it doesn't accumulate.
 		await cleanupEmptyMoveSession(this.sessionManager, this.#movedFromEmptySessionFile);
@@ -5914,11 +5895,6 @@ export class AgentSession {
 		hindsightState?.dispose();
 		const mnemopiState = setMnemopiSessionState(this, undefined);
 		await mnemopiState?.dispose({ timeoutMs: options.mnemopiConsolidateTimeoutMs });
-		// Tear down the embeddings subprocess AFTER mnemopi state.dispose:
-		// consolidate-on-dispose may still call `embed()` to store the final
-		// memories, and that round-trips through the worker we are about to
-		// hard-kill (issue #3031).
-		await shutdownMnemopiEmbedClient();
 		this.#disconnectFromAgent();
 		if (this.#unsubscribeAppendOnly) {
 			this.#unsubscribeAppendOnly();

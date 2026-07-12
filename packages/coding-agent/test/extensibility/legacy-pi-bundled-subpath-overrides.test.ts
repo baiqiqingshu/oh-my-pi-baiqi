@@ -36,21 +36,6 @@ describe("legacy pi compat compiled-mode subpath overrides (issue #3442)", () =>
 		expect(bundledModuleKeys.has("@oh-my-pi/pi-ai/oauth/openai-codex")).toBe(true);
 	});
 
-	it("expands web search provider wildcard exports for compiled plugin imports", () => {
-		const overrides = __buildLegacyPiPackageRootOverrides(true, bundledModuleKeys);
-		const providerKeys = [
-			"@oh-my-pi/pi-coding-agent/web/search/providers/xai",
-			"@oh-my-pi/pi-coding-agent/web/search/providers/tinyfish",
-			"@oh-my-pi/pi-coding-agent/web/search/providers/firecrawl",
-			"@oh-my-pi/pi-coding-agent/web/search/providers/duckduckgo",
-		] as const;
-
-		for (const key of providerKeys) {
-			expect(bundledModuleKeys.has(key)).toBe(true);
-			expect(overrides[key]).toBe(`omp-legacy-pi-bundled:${key}`);
-		}
-	});
-
 	it("does not enumerate root catch-all wildcards (./* / ./*.js)", () => {
 		// Root `./*` / `./*.js` patterns would static-import top-level files
 		// like the package's own `cli.ts` and explode the bundle through the

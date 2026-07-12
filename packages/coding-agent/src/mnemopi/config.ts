@@ -49,17 +49,8 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 	const recallBanks =
 		scoping === "global" ? scope.recallBanks : extendRecallWithLegacyBanks(scope.recallBanks, dbPath, cwd);
 	const llmMode = settings.get("mnemopi.llmMode");
-	const embeddingOverride = settings.get("mnemopi.embeddingModel");
-	const embeddingVariant = settings.get("mnemopi.embeddingVariant");
-	// Map the variant explicitly rather than indexing an object with the raw config
-	// value (which could resolve an inherited property like `__proto__`); any value
-	// other than the multilingual variant falls back to the English default.
-	const variantModel =
-		embeddingVariant === "multilingual" ? "intfloat/multilingual-e5-large" : "BAAI/bge-base-en-v1.5";
-	// Precedence: explicit `mnemopi.embeddingModel` setting > `MNEMOPI_EMBEDDING_MODEL`
-	// env (documented model-level override) > variant-derived default. Without the env
-	// term a variant default would silently shadow a user's configured env model.
-	const embeddingModel = embeddingOverride?.trim() || Bun.env.MNEMOPI_EMBEDDING_MODEL?.trim() || variantModel;
+	const embeddingApiUrl = settings.get("mnemopi.embeddingApiUrl")?.trim() || undefined;
+	const embeddingModel = settings.get("mnemopi.embeddingModel")?.trim() || undefined;
 	return {
 		dbPath,
 		baseBank: scope.baseBank,
@@ -80,10 +71,10 @@ export function loadMnemopiConfig(settings: Settings, agentDir: string): Mnemopi
 		injectionTokenLimit: Math.max(256, Math.floor(settings.get("mnemopi.injectionTokenLimit"))),
 		debug: settings.get("mnemopi.debug"),
 		providerOptions: {
-			noEmbeddings: settings.get("mnemopi.noEmbeddings"),
+			noEmbeddings: settings.get("mnemopi.noEmbeddings") || embeddingApiUrl === undefined,
 			debug: settings.get("mnemopi.debug"),
 			embeddingModel,
-			embeddingApiUrl: settings.get("mnemopi.embeddingApiUrl"),
+			embeddingApiUrl,
 			embeddingApiKey: settings.get("mnemopi.embeddingApiKey"),
 			llm:
 				llmMode === "remote"

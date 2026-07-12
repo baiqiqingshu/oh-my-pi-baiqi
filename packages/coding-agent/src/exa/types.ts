@@ -18,7 +18,7 @@ export interface MCPToolWrapperConfig {
 	name: string;
 	/** Display label for UI */
 	label: string;
-	/** MCP tool name to call (e.g., "web_search_exa") */
+	/** MCP tool name to call (e.g., "search_exa") */
 	mcpToolName: string;
 	/** Whether this is a websets tool (uses different MCP endpoint) */
 	isWebsetsTool?: boolean;

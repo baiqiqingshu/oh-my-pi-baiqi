@@ -442,16 +442,6 @@ export class CustomEditor extends Editor {
 	/** Called when left-arrow is pressed while the editor is empty (cursor necessarily at start). */
 	onLeftAtStart?: () => void;
 
-	/** Fired when a sustained space-bar hold is recognized — the push-to-talk STT start. The
-	 *  optimistically-typed spaces have already been deleted by the time this runs. */
-	onSpaceHoldStart?: () => void;
-	/** Fired when the held space bar is released (detected as an idle gap with no further repeated
-	 *  spaces) — the push-to-talk STT stop. */
-	onSpaceHoldEnd?: () => void;
-	/** Gate for the space-hold gesture. Returns false to keep the space bar inserting spaces
-	 *  normally; wired to `stt.enabled` so disabling STT restores plain space behavior. */
-	sttHoldEnabled?: () => boolean;
-
 	/** Custom key handlers from extensions and non-built-in app actions. */
 	#customKeyHandlers = new Map<KeyId, () => void>();
 	#customMatchKeys = new Map<string, () => void>();

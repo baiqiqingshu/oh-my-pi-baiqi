@@ -2,7 +2,6 @@ import { type SgrMouseEvent, TabBar } from "@oh-my-pi/pi-tui";
 import { getTabBarTheme } from "../../shared";
 import { SignInTab } from "./sign-in";
 import type { SetupScene, SetupSceneController, SetupSceneHost, SetupTab } from "./types";
-import { WebSearchTab } from "./web-search";
 
 /**
  * Tabbed "Set up your providers" scene. Composes independent panels (model
@@ -12,7 +11,7 @@ import { WebSearchTab } from "./web-search";
  */
 class ProvidersSceneController implements SetupSceneController {
 	title = "Set up your providers";
-	subtitle = "Sign in and pick a web search provider. Press Esc when you're done.";
+	subtitle = "Sign in to configure a model provider. Press Esc when you're done.";
 
 	#tabs: SetupTab[];
 	#tabBar: TabBar;
@@ -20,7 +19,7 @@ class ProvidersSceneController implements SetupSceneController {
 	#tabRowCount = 1;
 
 	constructor(host: SetupSceneHost) {
-		this.#tabs = [new SignInTab(host), new WebSearchTab(host)];
+		this.#tabs = [new SignInTab(host)];
 		this.#tabBar = new TabBar(
 			"Providers",
 			this.#tabs.map(tab => ({ id: tab.id, label: tab.label })),

@@ -78,10 +78,6 @@ async function showHelp(config: CliConfig): Promise<void> {
  */
 async function runSmokeTest(): Promise<void> {
 	const { smokeTestSyncWorker, startServer } = await import("@oh-my-pi/omp-stats");
-	const { smokeTestTinyTitleWorker } = await import("./tiny/title-client");
-	const { smokeTestSttWorker } = await import("./stt/asr-client");
-	const { smokeTestTtsWorker } = await import("./tts/tts-client");
-	const { smokeTestMnemopiEmbedWorker } = await import("./mnemopi/embed-client");
 	const { smokeTestJsEvalWorker } = await import("./eval/js/context-manager");
 	await smokeTestSyncWorker();
 
@@ -97,27 +93,14 @@ async function runSmokeTest(): Promise<void> {
 		statsServer.stop();
 	}
 
-	await smokeTestTinyTitleWorker();
-	await smokeTestSttWorker();
 	await smokeTestJsEvalWorker();
-	await smokeTestTtsWorker();
-	await smokeTestMnemopiEmbedWorker();
 	process.stdout.write("smoke-test: ok\n");
 }
 
-const TINY_WORKER_ARG = "__omp_worker_tiny_inference";
 const STATS_SYNC_WORKER_ARG = "__omp_worker_stats_sync";
-const TAB_WORKER_ARG = "__omp_worker_tab";
 const JS_EVAL_WORKER_ARG = "__omp_worker_js_eval";
-const STT_WORKER_ARG = "__omp_worker_stt";
-const TTS_WORKER_ARG = "__omp_worker_tts";
-const MNEMOPI_EMBED_WORKER_ARG = "__omp_worker_mnemopi_embed";
 
 async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
-	if (arg === TINY_WORKER_ARG) {
-		await runTinyWorker();
-		return true;
-	}
 	if (arg === STATS_SYNC_WORKER_ARG) {
 		// The sync worker handles messages via `self.onmessage`, assigned during
 		// this *async* dynamic import. Bun flushes the worker's initial message
@@ -147,119 +130,12 @@ async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
 	// synchronous `init` is dropped. Install a buffering inbox synchronously here
 	// (still inside the entry's sync prefix) so the handshake survives; the worker
 	// module binds the real handler once loaded.
-	if (arg === TAB_WORKER_ARG) {
-		if (parentPort) installWorkerInbox(parentPort);
-		await import("./tools/browser/tab-worker-entry");
-		return true;
-	}
 	if (arg === JS_EVAL_WORKER_ARG) {
 		if (parentPort) installWorkerInbox(parentPort);
 		await import("./eval/js/worker-entry");
 		return true;
 	}
-	if (arg === STT_WORKER_ARG) {
-		const { startSttWorker } = await import("./stt/asr-worker");
-		await runIpcSubprocessWorker(startSttWorker);
-		return true;
-	}
-	if (arg === TTS_WORKER_ARG) {
-		const { startTtsWorker } = await import("./tts/tts-worker");
-		await runIpcSubprocessWorker(startTtsWorker);
-		return true;
-	}
-	if (arg === MNEMOPI_EMBED_WORKER_ARG) {
-		const { startMnemopiEmbedWorker } = await import("./mnemopi/embed-worker");
-		await runIpcSubprocessWorker(startMnemopiEmbedWorker);
-		return true;
-	}
 	return false;
-}
-
-/**
- * Boot a subprocess-isolated transformers.js worker over the parent's IPC
- * channel and block until the parent disconnects. The tiny-model, STT, and TTS
- * workers each run `onnxruntime-node` (loaded transitively by
- * `@huggingface/transformers`) in a child address space because its NAPI
- * finalizer segfaults Bun on shutdown (issue #1606); the parent `SIGKILL`s the
- * child so that finalizer never runs in either process. This wires `process`
- * IPC to the worker's typed transport, keeps the event loop alive while the
- * worker is idle, and hard-kills the process on parent `disconnect`.
- */
-async function runIpcSubprocessWorker<In, Out>(
-	start: (transport: {
-		send(message: Out): void;
-		sendAndFlush(message: Out): Promise<void>;
-		onMessage(handler: (message: In) => void): () => void;
-	}) => void,
-): Promise<void> {
-	const { promise: shuttingDown, resolve: shutdown } = Promise.withResolvers<void>();
-	type IpcSend = (this: NodeJS.Process, message: unknown, callback?: (error: Error | null) => void) => boolean;
-	// `process.send` only exists when spawned with an IPC channel; the parent
-	// always spawns us that way. If it's missing, the parent vanished and
-	// there's no one to talk to.
-	const ipcSend = (): IpcSend | undefined => (process as NodeJS.Process & { send?: IpcSend }).send;
-	const send = (message: Out): void => {
-		const sender = ipcSend();
-		if (!sender) {
-			shutdown();
-			return;
-		}
-		try {
-			sender.call(process, message);
-		} catch {
-			shutdown();
-		}
-	};
-	const sendAndFlush = (message: Out): Promise<void> => {
-		const sender = ipcSend();
-		if (!sender) {
-			shutdown();
-			return Promise.resolve();
-		}
-		const { promise, resolve } = Promise.withResolvers<void>();
-		try {
-			sender.call(process, message, () => resolve());
-		} catch {
-			shutdown();
-			resolve();
-		}
-		return promise;
-	};
-	start({
-		send,
-		sendAndFlush,
-		onMessage(handler) {
-			const wrap = (data: unknown): void => handler(data as In);
-			process.on("message", wrap);
-			return () => {
-				process.off("message", wrap);
-			};
-		},
-	});
-	const keepalive = setInterval(() => {}, 2 ** 30);
-	// Parent went away (crashed, SIGKILL, etc.) — commit suicide so we don't
-	// linger as an orphan. SIGKILL via `process.kill` keeps us symmetrical with
-	// the parent's hard-kill on shutdown: skip every JS/native finalizer.
-	process.on("disconnect", () => shutdown());
-	try {
-		await shuttingDown;
-	} finally {
-		clearInterval(keepalive);
-	}
-	process.kill(process.pid, "SIGKILL");
-}
-
-/**
- * Hidden subcommand that boots the tiny-model worker inside this process over
- * the parent's IPC channel. The agent's main process spawns the same binary
- * with this flag so `onnxruntime-node` (loaded transitively by
- * `@huggingface/transformers`) lives in a child address space. The parent
- * `SIGKILL`s the child on shutdown so the NAPI finalizer never runs in either
- * process — that finalizer segfaults Bun on Windows (issue #1606).
- */
-async function runTinyWorker(): Promise<void> {
-	const { startTinyTitleWorker } = await import("./tiny/worker");
-	await runIpcSubprocessWorker(startTinyTitleWorker);
 }
 
 /** Run the CLI with the given argv (no `process.argv` prefix). */

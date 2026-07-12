@@ -3,12 +3,8 @@
  *
  * Picks a coding-difficulty bucket for a user prompt and maps it to a concrete
  * {@link Effort}, clamped into the active model's supported range (never below
- * {@link Effort.Low}). Two backends, selected by `providers.autoThinkingModel`:
- *
- * - `online` (default): a smol model classifies into `low|medium|high|xhigh`.
- * - a local key: an on-device memory model classifies into the coarser
- *   `trivial|moderate|hard` scheme (3-class is more reliable than 4-way ordinal
- *   on sub-2B models), mapped to `low|high|xhigh`.
+ * {@link Effort.Low}) using a small online model that classifies into
+ * `low|medium|high|xhigh`.
  *
  * Throws on any failure (no model, no key, unparseable output, abort/timeout);
  * the caller falls back to a concrete level and continues the turn.
@@ -20,20 +16,10 @@ import type { ModelRegistry } from "../config/model-registry";
 import { resolveRoleSelection } from "../config/model-resolver";
 import type { Settings } from "../config/settings";
 import difficultySystemPrompt from "../prompts/system/auto-thinking-difficulty.md" with { type: "text" };
-import difficultyLocalPrompt from "../prompts/system/auto-thinking-difficulty-local.md" with { type: "text" };
 import { clampAutoThinkingEffort } from "../thinking";
-import { preprocessTinyMessage } from "../tiny/message-preproc";
-import {
-	isTinyMemoryLocalModelKey,
-	isTinyMemoryReasoningModelKey,
-	ONLINE_AUTO_THINKING_MODEL_KEY,
-} from "../tiny/models";
-import { tinyModelClient } from "../tiny/title-client";
 
 const DIFFICULTY_SYSTEM_PROMPT = prompt.render(difficultySystemPrompt);
 
-/** Local classifiers occasionally need more room for chat-template boilerplate. */
-const LOCAL_ANSWER_MAX_TOKENS = 16;
 /**
  * Online classifier budget. Sized to survive backends that ignore
  * `disableReasoning` (e.g. Qwen3 via llama.cpp catalogued `reasoning: false`
@@ -62,13 +48,7 @@ export async function classifyDifficulty(
 	promptText: string,
 	deps: ClassifyDifficultyDeps,
 ): Promise<Effort | undefined> {
-	const backend = deps.settings.get("providers.autoThinkingModel");
-	const input = preprocessTinyMessage(promptText);
-	const effort =
-		backend === ONLINE_AUTO_THINKING_MODEL_KEY
-			? await classifyOnline(input, deps)
-			: await classifyLocal(input, backend, deps);
-	return clampAutoThinkingEffort(deps.model, effort);
+	return clampAutoThinkingEffort(deps.model, await classifyOnline(promptText, deps));
 }
 
 async function classifyOnline(input: string, deps: ClassifyDifficultyDeps): Promise<Effort> {
@@ -112,28 +92,6 @@ async function classifyOnline(input: string, deps: ClassifyDifficultyDeps): Prom
 	return effort;
 }
 
-async function classifyLocal(input: string, modelKey: string, deps: ClassifyDifficultyDeps): Promise<Effort> {
-	if (!isTinyMemoryLocalModelKey(modelKey)) {
-		throw new Error(`auto-thinking: unsupported local classifier model: ${modelKey}`);
-	}
-	const maxTokens = isTinyMemoryReasoningModelKey(modelKey)
-		? Math.max(LOCAL_ANSWER_MAX_TOKENS, REASONING_SAFE_MAX_TOKENS)
-		: LOCAL_ANSWER_MAX_TOKENS;
-	const builtPrompt = prompt.render(difficultyLocalPrompt, { prompt: input });
-	const text = await tinyModelClient.complete(modelKey, builtPrompt, {
-		maxTokens,
-		signal: deps.signal,
-	});
-	if (!text) {
-		throw new Error("auto-thinking: local classification returned no output");
-	}
-	const effort = parseDifficultyBucket(text);
-	if (!effort) {
-		throw new Error(`auto-thinking: unparseable local classification: ${JSON.stringify(text)}`);
-	}
-	return effort;
-}
-
 /** Map the online 4-way level keyword to an {@link Effort}; earliest match wins. */
 export function parseDifficultyLevel(text: string): Effort | undefined {
 	const lower = text.toLowerCase();
@@ -148,19 +106,6 @@ export function parseDifficultyLevel(text: string): Effort | undefined {
 	if (medium >= 0) candidates.push([medium, Effort.Medium]);
 	const low = lower.search(/\blow\b/);
 	if (low >= 0) candidates.push([low, Effort.Low]);
-	return earliest(candidates);
-}
-
-/** Map the local 3-way bucket keyword to an {@link Effort}; earliest match wins. */
-export function parseDifficultyBucket(text: string): Effort | undefined {
-	const lower = text.toLowerCase();
-	const candidates: Array<[number, Effort]> = [];
-	const trivial = lower.search(/\btrivial\b/);
-	if (trivial >= 0) candidates.push([trivial, Effort.Low]);
-	const moderate = lower.search(/\bmoderate\b/);
-	if (moderate >= 0) candidates.push([moderate, Effort.High]);
-	const hard = lower.search(/\bhard\b/);
-	if (hard >= 0) candidates.push([hard, Effort.XHigh]);
 	return earliest(candidates);
 }
 

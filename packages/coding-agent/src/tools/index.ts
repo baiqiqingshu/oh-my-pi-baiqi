@@ -32,13 +32,11 @@ import { canSpawnAtDepth } from "../task/types";
 import { countToolsForAutoDiscovery, resolveEffectiveToolDiscoveryMode } from "../tool-discovery/mode";
 import type { DiscoverableTool, DiscoverableToolSearchIndex } from "../tool-discovery/tool-index";
 import type { EventBus } from "../utils/event-bus";
-import { WebSearchTool } from "../web/search";
 import type { WorkspaceTree } from "../workspace-tree";
 import { AskTool } from "./ask";
 import { AstEditTool } from "./ast-edit";
 import { AstGrepTool } from "./ast-grep";
 import { BashTool } from "./bash";
-import { BrowserTool } from "./browser";
 import { type BuiltinToolName, normalizeToolNames } from "./builtin-names";
 import { type CheckpointState, CheckpointTool, type CompletedRewindState, RewindTool } from "./checkpoint";
 import { DebugTool } from "./debug";
@@ -72,12 +70,10 @@ export * from "../goals";
 export * from "../lsp";
 export * from "../session/streaming-output";
 export * from "../task";
-export * from "../web/search";
 export * from "./ask";
 export * from "./ast-edit";
 export * from "./ast-grep";
 export * from "./bash";
-export * from "./browser";
 export * from "./checkpoint";
 export * from "./debug";
 export * from "./eval";
@@ -102,7 +98,6 @@ export * from "./review";
 export * from "./search-tool-bm25";
 export * from "./ssh";
 export * from "./todo";
-export * from "./tts";
 export * from "./vibe";
 export * from "./write";
 export * from "./yield";
@@ -460,14 +455,12 @@ export const BUILTIN_TOOLS: Record<BuiltinToolName, ToolFactory> = {
 	grep: s => new GrepTool(s),
 	lsp: LspTool.createIf,
 	inspect_image: s => new InspectImageTool(s),
-	browser: s => new BrowserTool(s),
 	checkpoint: CheckpointTool.createIf,
 	rewind: RewindTool.createIf,
 	task: s => TaskTool.create(s),
 	job: s => new JobTool(s),
 	irc: IrcTool.createIf,
 	todo: s => new TodoTool(s),
-	web_search: s => new WebSearchTool(s),
 	search_tool_bm25: SearchToolBm25Tool.createIf,
 	write: s => new WriteTool(s),
 	memory_edit: MemoryEditTool.createIf,
@@ -614,11 +607,9 @@ export async function createTools(session: ToolSession, toolNames?: string[]): P
 		if (name === "ast_grep") return session.settings.get("astGrep.enabled");
 		if (name === "ast_edit") return session.settings.get("astEdit.enabled");
 		if (name === "inspect_image") return session.settings.get("inspect_image.enabled");
-		if (name === "web_search") return session.settings.get("web_search.enabled");
 		// search_tool_bm25 is allowed when either legacy mcp.discoveryMode or new tools.discoveryMode is active.
 		if (name === "search_tool_bm25") return discoveryActive;
 		if (name === "ask") return session.settings.get("ask.enabled");
-		if (name === "browser") return session.settings.get("browser.enabled");
 		if (name === "checkpoint" || name === "rewind") return session.settings.get("checkpoint.enabled");
 		if (name === "irc") return isIrcEnabled(session.settings, session.taskDepth ?? 0);
 		if (name === "retain" || name === "recall" || name === "reflect") {

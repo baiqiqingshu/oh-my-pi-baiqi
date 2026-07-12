@@ -7,7 +7,6 @@ import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
 import chalk from "chalk";
 import { isAuthenticated, ModelRegistry } from "../config/model-registry";
 import { discoverAuthStorage } from "../sdk";
-import { getAvailableAuthMethods } from "../web/search/providers/perplexity-auth";
 
 export default class Token extends Command {
 	static description = "Get the API key or OAuth token for a provider";
@@ -101,16 +100,6 @@ export default class Token extends Command {
 
 			// Resolve the API key / token
 			let apiKey: string | undefined;
-
-			if (provider === "perplexity") {
-				const methods = await getAvailableAuthMethods(authStorage, undefined, {
-					forceRefresh: flags["force-refresh"],
-				});
-				const printable = methods.find(m => m.type === "oauth" || m.type === "api_key");
-				if (printable) {
-					apiKey = printable.type === "oauth" ? printable.access.accessToken : printable.apiKey;
-				}
-			}
 
 			if (!apiKey) {
 				apiKey = await modelRegistry.getApiKeyForProvider(provider, undefined, {

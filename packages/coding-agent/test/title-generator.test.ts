@@ -17,10 +17,9 @@ function getModelFor(provider: GeneratedProvider, id: string): Model<Api> {
 	return model;
 }
 
-function createSettings(model: Model<Api>, tinyModel = "online") {
+function createSettings(model: Model<Api>) {
 	return {
-		get(path: string) {
-			if (path === "providers.tinyModel") return tinyModel;
+		get() {
 			return undefined;
 		},
 		getModelRole(role: string) {
@@ -480,8 +479,7 @@ describe("title generator", () => {
 
 		// Case 1: All three roles configured. 'tiny' should be used.
 		let currentSettings = {
-			get(path: string) {
-				if (path === "providers.tinyModel") return "online";
+			get() {
 				return undefined;
 			},
 			getModelRole(role: string) {
@@ -511,8 +509,7 @@ describe("title generator", () => {
 
 		// Case 2: 'tiny' role not configured, 'commit' and 'smol' configured. 'commit' should be used.
 		currentSettings = {
-			get(path: string) {
-				if (path === "providers.tinyModel") return "online";
+			get() {
 				return undefined;
 			},
 			getModelRole(role: string) {
@@ -533,8 +530,7 @@ describe("title generator", () => {
 
 		// Case 3: Only 'smol' role configured. 'smol' should be used.
 		currentSettings = {
-			get(path: string) {
-				if (path === "providers.tinyModel") return "online";
+			get() {
 				return undefined;
 			},
 			getModelRole(role: string) {

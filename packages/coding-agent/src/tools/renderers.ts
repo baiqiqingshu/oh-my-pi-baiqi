@@ -10,12 +10,10 @@ import { goalToolRenderer } from "../goals/tools/goal-tool";
 import { lspToolRenderer } from "../lsp/render";
 import type { Theme } from "../modes/theme/theme";
 import { taskToolRenderer } from "../task/renderer";
-import { webSearchToolRenderer } from "../web/search/render";
 import { askToolRenderer } from "./ask";
 import { astEditToolRenderer } from "./ast-edit";
 import { astGrepToolRenderer } from "./ast-grep";
 import { bashToolRenderer } from "./bash";
-import { browserToolRenderer } from "./browser/render";
 import { debugToolRenderer } from "./debug";
 import { evalToolRenderer } from "./eval-render";
 import { githubToolRenderer } from "./gh-renderer";
@@ -83,7 +81,6 @@ export const toolRenderers: Record<string, ToolRenderer> = {
 	ast_grep: astGrepToolRenderer as ToolRenderer,
 	ast_edit: astEditToolRenderer as ToolRenderer,
 	bash: bashToolRenderer as ToolRenderer,
-	browser: browserToolRenderer as ToolRenderer,
 	debug: debugToolRenderer as ToolRenderer,
 	eval: evalToolRenderer as ToolRenderer,
 	edit: editToolRenderer as ToolRenderer,
@@ -111,7 +108,6 @@ export const toolRenderers: Record<string, ToolRenderer> = {
 	todo: todoToolRenderer as ToolRenderer,
 	github: githubToolRenderer as ToolRenderer,
 	goal: goalToolRenderer as ToolRenderer,
-	web_search: webSearchToolRenderer as ToolRenderer,
 	vibe_spawn: createVibeToolRenderer("spawn") as ToolRenderer,
 	vibe_send: createVibeToolRenderer("send") as ToolRenderer,
 	vibe_wait: createVibeToolRenderer("wait") as ToolRenderer,

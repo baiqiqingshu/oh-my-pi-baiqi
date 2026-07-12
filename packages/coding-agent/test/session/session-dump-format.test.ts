@@ -26,7 +26,7 @@ const HARMONY_MODEL = { provider: "openai", id: "gpt-5", name: "GPT-5" } as Mode
 
 describe("formatSessionDumpText tool parameters", () => {
 	it("renders arktype schemas as a TypeScript signature, not schema internals", () => {
-		const webSearchSchema = type({
+		const lookupSchema = type({
 			"query /** search query */": "string",
 			"recency?": "'day' | 'week'",
 		});
@@ -35,14 +35,14 @@ describe("formatSessionDumpText tool parameters", () => {
 			messages: [],
 			tools: [
 				{
-					name: "web_search",
+					name: "lookup",
 					description: "Searches the web.",
-					parameters: webSearchSchema,
+					parameters: lookupSchema,
 				},
 			],
 		});
 
-		expect(out).toContain("# Tool: web_search");
+		expect(out).toContain("# Tool: lookup");
 		expect(out).toContain("Parameters: {");
 		expect(out).toContain("/** search query */");
 		expect(out).toContain("query: string;");
@@ -101,7 +101,7 @@ describe("formatSessionDumpText tool parameters", () => {
 			inlineToolDescriptors: true,
 			tools: [
 				{
-					name: "web_search",
+					name: "lookup",
 					description: "Searches the web.",
 					parameters: { type: "object" },
 				},
@@ -114,11 +114,11 @@ describe("formatSessionDumpText tool parameters", () => {
 	it("does not falsely omit the Available Tools section even if systemPrompt contains tool headings", () => {
 		const out = formatSessionDumpText({
 			messages: [],
-			systemPrompt: ["# Inventory\nThis is a rule discussing # Tool: web_search.\nNever call it directly."],
+			systemPrompt: ["# Inventory\nThis is a rule discussing # Tool: lookup.\nNever call it directly."],
 			inlineToolDescriptors: false,
 			tools: [
 				{
-					name: "web_search",
+					name: "lookup",
 					description: "Searches the web.",
 					parameters: { type: "object" },
 				},

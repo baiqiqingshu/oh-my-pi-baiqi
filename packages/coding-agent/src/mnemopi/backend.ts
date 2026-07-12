@@ -18,8 +18,6 @@ import type {
 import memoryConsolidationPrompt from "../prompts/system/memory-consolidation-system.md" with { type: "text" };
 import memoryExtractionPrompt from "../prompts/system/memory-extraction-system.md" with { type: "text" };
 import type { AgentSession } from "../session/agent-session";
-import { isTinyMemoryLocalModelKey, ONLINE_MEMORY_MODEL_KEY } from "../tiny/models";
-import { tinyModelClient } from "../tiny/title-client";
 import { shortenPath } from "../tools/render-utils";
 import {
 	loadMnemopiConfig,
@@ -480,21 +478,6 @@ async function resolveMnemopiProviderOptions(
 
 	if (config.llmMode === "none") return base;
 
-	// A local on-device memory model (providers.memoryModel) overrides the smol/remote
-	// LLM for both consolidation and the configured extraction path. `none` still wins
-	// (the user explicitly disabled the LLM). The refined prompts feed the small local
-	// model the line-format extraction + hardened consolidation recipes from the spike.
-	const memoryModel = settings.get("providers.memoryModel");
-	if (memoryModel !== ONLINE_MEMORY_MODEL_KEY && isTinyMemoryLocalModelKey(memoryModel)) {
-		return {
-			...base,
-			llm: {
-				complete: (prompt, opts) => tinyModelClient.complete(memoryModel, prompt, { maxTokens: opts?.maxTokens }),
-				extractionPrompt: memoryExtractionPrompt,
-				consolidationPrompt: memoryConsolidationPrompt,
-			},
-		};
-	}
 	if (config.llmMode === "remote") {
 		return {
 			...base,

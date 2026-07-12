@@ -80,7 +80,6 @@ describe("createTools", () => {
 		expect(names).toContain("lsp");
 		expect(names).toContain("task");
 		expect(names).toContain("todo");
-		expect(names).toContain("web_search");
 		expect(names).toContain("resolve");
 		expect(names).not.toContain("fetch");
 		expect(names).not.toContain("vim");
@@ -237,8 +236,6 @@ describe("createTools", () => {
 				"astGrep.enabled": false,
 				"astEdit.enabled": false,
 				"bash.enabled": false,
-				"web_search.enabled": false,
-				"browser.enabled": false,
 				"inspect_image.enabled": false,
 			}),
 		});
@@ -250,8 +247,6 @@ describe("createTools", () => {
 		expect(names).not.toContain("grep");
 		expect(names).not.toContain("ast_grep");
 		expect(names).not.toContain("ast_edit");
-		expect(names).not.toContain("web_search");
-		expect(names).not.toContain("browser");
 		expect(names).not.toContain("inspect_image");
 
 		const requestedTools = await createTools(session, ["bash", "read"]);

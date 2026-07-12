@@ -13,9 +13,7 @@ import type { Settings } from "../config/settings";
 import titleMarkerInstruction from "../prompts/system/title-marker-instruction.md" with { type: "text" };
 import titleSystemPrompt from "../prompts/system/title-system.md" with { type: "text" };
 import { formatTitleUserMessage } from "../tiny/message-preproc";
-import { isTinyTitleLocalModelKey, ONLINE_TINY_TITLE_MODEL_KEY } from "../tiny/models";
 import { isLowSignalTitleInput, normalizeGeneratedTitle } from "../tiny/text";
-import { tinyTitleClient } from "../tiny/title-client";
 
 const TITLE_SYSTEM_PROMPT = prompt.render(titleSystemPrompt);
 const TITLE_MARKER_INSTRUCTION = prompt.render(titleMarkerInstruction);
@@ -85,56 +83,16 @@ export async function generateSessionTitle(
 		return null;
 	}
 
-	const titleSystemPrompt = customSystemPrompt?.trim() || undefined;
-	const tinyModel = settings.get("providers.tinyModel");
-	if (tinyModel === ONLINE_TINY_TITLE_MODEL_KEY) {
-		return generateTitleOnline(
-			firstMessage,
-			registry,
-			settings,
-			sessionId,
-			currentModel,
-			metadataResolver,
-			undefined,
-			titleSystemPrompt,
-		);
-	}
-
-	// User explicitly picked a local tiny model. NEVER fall back to the online
-	// smol path (issue #3187): the smol role resolves through priority.json and
-	// silently bills whatever provider holds the resolved API key — OpenRouter
-	// in the reporter's case, leaking real credits without consent. If the
-	// local worker fails (unknown key, download missing, transformers.js
-	// crash, abort), leave the session untitled; the next user turn retries.
-	if (!isTinyTitleLocalModelKey(tinyModel)) {
-		logger.warn("title-generator: unknown local tiny model; skipping title (will not fall back to online)", {
-			sessionId,
-			model: tinyModel,
-			reason: "unknown-local-model",
-		});
-		return null;
-	}
-	try {
-		const localTitle = titleSystemPrompt
-			? await tinyTitleClient.generate(tinyModel, firstMessage, { systemPrompt: titleSystemPrompt })
-			: await tinyTitleClient.generate(tinyModel, firstMessage);
-		if (!localTitle) {
-			logger.warn("title-generator: local tiny model produced no title; skipping (no online fallback)", {
-				sessionId,
-				model: tinyModel,
-				reason: "local-no-output",
-			});
-			return null;
-		}
-		return localTitle;
-	} catch (err) {
-		logger.warn("title-generator: local tiny model errored; skipping (no online fallback)", {
-			sessionId,
-			model: tinyModel,
-			error: err instanceof Error ? err.message : String(err),
-		});
-		return null;
-	}
+	return generateTitleOnline(
+		firstMessage,
+		registry,
+		settings,
+		sessionId,
+		currentModel,
+		metadataResolver,
+		undefined,
+		customSystemPrompt?.trim() || undefined,
+	);
 }
 
 export async function generateTitleOnline(

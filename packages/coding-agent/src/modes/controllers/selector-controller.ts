@@ -48,11 +48,7 @@ import {
 import { AUTO_THINKING, type ConfiguredThinkingLevel } from "../../thinking";
 import {
 	isImageProviderPreference,
-	isSearchProviderId,
-	isSearchProviderPreference,
-	setExcludedSearchProviders,
 	setPreferredImageProvider,
-	setPreferredSearchProvider,
 } from "../../tools";
 import { shortenPath } from "../../tools/render-utils";
 import { copyToClipboard } from "../../utils/clipboard";
@@ -559,16 +555,6 @@ export class SelectorController {
 			}
 
 			// Provider settings - update runtime preferences
-			case "providers.webSearch":
-				if (typeof value === "string" && isSearchProviderPreference(value)) {
-					setPreferredSearchProvider(value);
-				}
-				break;
-			case "providers.webSearchExclude":
-				if (Array.isArray(value)) {
-					setExcludedSearchProviders(value.filter(isSearchProviderId));
-				}
-				break;
 			case "providers.image":
 				if (isImageProviderPreference(value)) {
 					setPreferredImageProvider(value);

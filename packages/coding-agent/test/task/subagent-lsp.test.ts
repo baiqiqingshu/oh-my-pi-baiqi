@@ -278,7 +278,7 @@ describe("subagent LSP availability", () => {
 
 		const toolNames = getOptions()?.toolNames;
 		expect(getOptions()?.enableLsp).toBe(true);
-		expect(toolNames).toEqual(["read", "grep", "glob", "lsp", "web_search", "ast_grep", "report_finding", "irc"]);
+		expect(toolNames).toEqual(["read", "grep", "glob", "lsp", "ast_grep", "report_finding", "irc"]);
 		expect(toolNames).not.toContain("bash");
 		expect(toolNames).not.toContain("memory_edit");
 		expect(toolNames).not.toContain("retain");

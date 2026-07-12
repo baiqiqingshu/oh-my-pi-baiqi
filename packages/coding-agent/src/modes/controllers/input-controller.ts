@@ -9,7 +9,6 @@ import { resolveLocalRoot } from "../../internal-urls";
 import { AssistantMessageComponent } from "../../modes/components/assistant-message";
 import { extractImagePathFromText } from "../../modes/components/custom-editor";
 import { renderSegmentTrack } from "../../modes/components/segment-track";
-import { TinyTitleDownloadProgressComponent } from "../../modes/components/tiny-title-download-progress";
 import { expandEmoticons } from "../../modes/emoji-autocomplete";
 import { materializeImageReferenceLinks, shiftImageMarkers } from "../../modes/image-references";
 import { createPromptActionAutocompleteProvider } from "../../modes/prompt-action-autocomplete";
@@ -19,12 +18,8 @@ import type { InteractiveModeContext } from "../../modes/types";
 import manualContinuePrompt from "../../prompts/system/manual-continue.md" with { type: "text" };
 import { USER_INTERRUPT_LABEL } from "../../session/messages";
 import { executeBuiltinSlashCommand } from "../../slash-commands/builtin-registry";
-import { isTinyTitleLocalModelKey } from "../../tiny/models";
 import { isLowSignalTitleInput } from "../../tiny/text";
-import { tinyTitleClient } from "../../tiny/title-client";
-import type { TinyTitleProgressEvent } from "../../tiny/title-protocol";
 import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../../tools/render-utils";
-import { vocalizer } from "../../tts/vocalizer";
 import {
 	copyToClipboard,
 	readImageFromClipboard,
@@ -183,51 +178,6 @@ export class InputController {
 	// pasted-file attachments. Seeded from 0 and bumped past existing attachment files.
 	#attachmentCounter = 0;
 
-	#showTinyTitleDownloadProgress(modelKey: string): void {
-		if (!isTinyTitleLocalModelKey(modelKey)) return;
-		const component = new TinyTitleDownloadProgressComponent(modelKey);
-		let added = false;
-		let disposed = false;
-		let removeTimer: NodeJS.Timeout | undefined;
-		const remove = (): void => {
-			if (disposed) return;
-			disposed = true;
-			unsubscribe();
-			if (removeTimer) {
-				clearTimeout(removeTimer);
-				removeTimer = undefined;
-			}
-			if (added) {
-				this.ctx.chatContainer.removeChild(component);
-				this.ctx.ui.requestRender();
-			}
-		};
-		const scheduleRemove = (): void => {
-			if (removeTimer) clearTimeout(removeTimer);
-			removeTimer = setTimeout(remove, TINY_TITLE_PROGRESS_DONE_TTL_MS);
-			removeTimer.unref?.();
-		};
-		let revealAt = 0;
-		const update = (event: TinyTitleProgressEvent): void => {
-			if (disposed || event.modelKey !== modelKey) return;
-			component.update(event);
-			if (revealAt === 0) revealAt = performance.now() + TINY_TITLE_PROGRESS_REVEAL_DELAY_MS;
-			const complete = component.isComplete();
-			// Reveal only for a download still in flight past the grace window. Cache hits
-			// either complete or fall silent (onnx init emits no events) before this fires.
-			if (!added && !complete && performance.now() >= revealAt) {
-				this.ctx.chatContainer.addChild(component);
-				added = true;
-			}
-			if (added) this.ctx.ui.requestRender();
-			if (complete) {
-				if (added) scheduleRemove();
-				else remove();
-			}
-		};
-		const unsubscribe = tinyTitleClient.onProgress(update);
-	}
-
 	#abortStreamingTurn(): void {
 		void this.ctx.session.abort({ reason: USER_INTERRUPT_LABEL });
 	}
@@ -361,13 +311,6 @@ export class InputController {
 			} else if (this.ctx.editor.getText().trim()) {
 				// Esc must not destroy an in-progress draft.
 				this.ctx.lastEscapeTime = 0;
-			} else if (vocalizer.isSpeaking()) {
-				// TTS buffers seconds of PCM past the streaming abort, so an Esc
-				// arriving after the model stopped would otherwise fall through to
-				// the double-Esc gesture while Kokoro reads on. Silence first;
-				// tree/branch stays reachable via a second Esc.
-				vocalizer.clear();
-				this.ctx.lastEscapeTime = 0;
 			} else {
 				// Double-interrupt with empty editor triggers /tree, /branch, or nothing based on setting
 				const action = settings.get("doubleEscapeAction");
@@ -464,15 +407,6 @@ export class InputController {
 		for (const key of this.ctx.keybindings.getKeys("app.message.followUp")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => void this.handleFollowUp());
 		}
-		for (const key of this.ctx.keybindings.getKeys("app.stt.toggle")) {
-			this.ctx.editor.setCustomKeyHandler(key, () => void this.ctx.handleSTTToggle());
-		}
-		// Hold the space bar to push-to-talk: the editor recognizes the auto-repeat burst, tracks
-		// the spam back out, and toggles STT on hold start / release. Gated on `stt.enabled` so a
-		// disabled STT leaves the space bar typing normally.
-		this.ctx.editor.sttHoldEnabled = () => settings.get("stt.enabled");
-		this.ctx.editor.onSpaceHoldStart = () => void this.ctx.handleSTTToggle();
-		this.ctx.editor.onSpaceHoldEnd = () => void this.ctx.handleSTTToggle();
 		for (const key of this.ctx.keybindings.getKeys("app.clipboard.copyLine")) {
 			this.ctx.editor.setCustomKeyHandler(key, () => this.handleCopyCurrentLine());
 		}
@@ -818,7 +752,6 @@ export class InputController {
 			// and the session stays unnamed — the next user message gets a fresh
 			// chance, so titling defers past "hi" instead of latching onto it.
 			if (!this.ctx.sessionManager.getSessionName() && !$env.PI_NO_TITLE && !isLowSignalTitleInput(text)) {
-				this.#showTinyTitleDownloadProgress(this.ctx.settings.get("providers.tinyModel"));
 				const registry = this.ctx.session.modelRegistry;
 				generateSessionTitle(
 					text,

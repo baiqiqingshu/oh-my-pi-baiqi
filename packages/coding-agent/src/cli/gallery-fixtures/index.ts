@@ -22,7 +22,6 @@ import { memoryFixtures } from "./memory";
 import { miscFixtures } from "./misc";
 import { searchFixtures } from "./search";
 import { shellFixtures } from "./shell";
-import { webFixtures } from "./web";
 
 export * from "./types";
 
@@ -34,7 +33,6 @@ export const galleryFixtures = {
 	...editFixtures,
 	...agenticFixtures,
 	...memoryFixtures,
-	...webFixtures,
 	...codeintelFixtures,
 	...miscFixtures,
 };

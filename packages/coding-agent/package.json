@@ -509,14 +509,6 @@
       "types": "./src/ssh/*.ts",
       "import": "./src/ssh/*.ts"
     },
-    "./stt": {
-      "types": "./src/stt/index.ts",
-      "import": "./src/stt/index.ts"
-    },
-    "./stt/*": {
-      "types": "./src/stt/*.ts",
-      "import": "./src/stt/*.ts"
-    },
     "./task": {
       "types": "./src/task/index.ts",
       "import": "./src/task/index.ts"
@@ -560,18 +552,6 @@
     "./web/scrapers/*": {
       "types": "./src/web/scrapers/*.ts",
       "import": "./src/web/scrapers/*.ts"
-    },
-    "./web/search": {
-      "types": "./src/web/search/index.ts",
-      "import": "./src/web/search/index.ts"
-    },
-    "./web/search/*": {
-      "types": "./src/web/search/*.ts",
-      "import": "./src/web/search/*.ts"
-    },
-    "./web/search/providers/*": {
-      "types": "./src/web/search/providers/*.ts",
-      "import": "./src/web/search/providers/*.ts"
     },
     "./*.js": "./src/*.ts"
   }

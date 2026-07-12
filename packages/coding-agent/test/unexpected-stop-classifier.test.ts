@@ -84,9 +84,8 @@ describe("classifyUnexpectedStop", () => {
 		if (!baseModel) throw new Error("Expected bundled Claude Sonnet 4.5 model");
 		const model = { ...baseModel, reasoning: false };
 		const settings = {
-			get(path: string) {
-				if (path === "providers.unexpectedStopModel") return "online";
-				return undefined;
+		get() {
+			return undefined;
 			},
 			getModelRole(role: string) {
 				return role === "smol" ? `${model.provider}/${model.id}` : undefined;
