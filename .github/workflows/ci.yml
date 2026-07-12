@@ -16,13 +16,52 @@ env:
   RUST_TOOLCHAIN: "stable"
 
 jobs:
+  # Keep the committed lockfile in sync with the dependency manifest before
+  # starting platform-specific jobs. CI jobs below use this exact revision.
+  sync_lockfile:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.sync.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Sync Bun lockfile
+        id: sync
+        shell: bash
+        run: |
+          bun install
+
+          if git diff --quiet -- bun.lock; then
+            echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::bun.lock is out of date; update it on main before building this ref."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          git commit -m "chore: sync bun lockfile"
+          git push origin HEAD:main
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   # ---------------------------------------------------------------------------
   # Check & Lint
   # ---------------------------------------------------------------------------
   check:
+    needs: [sync_lockfile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -35,9 +74,12 @@ jobs:
   # Build Native Addons (Rust) - Linux x64
   # ---------------------------------------------------------------------------
   native_linux_x64:
+    needs: [sync_lockfile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -75,9 +117,12 @@ jobs:
   # Build Native Addons (Rust) - Windows x64
   # ---------------------------------------------------------------------------
   native_windows_x64:
+    needs: [sync_lockfile]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -107,10 +152,12 @@ jobs:
   # Smoke Test
   # ---------------------------------------------------------------------------
   test_smoke:
-    needs: [check]
+    needs: [check, sync_lockfile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -125,10 +172,12 @@ jobs:
   # ---------------------------------------------------------------------------
   release_binary_linux:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: [check, native_linux_x64]
+    needs: [check, native_linux_x64, sync_lockfile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -168,10 +217,12 @@ jobs:
 
   release_binary_windows:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: [check, native_windows_x64]
+    needs: [check, native_windows_x64, sync_lockfile]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -213,10 +264,12 @@ jobs:
   # ---------------------------------------------------------------------------
   release_github:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [release_binary_linux, release_binary_windows]
+    needs: [release_binary_linux, release_binary_windows, sync_lockfile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_lockfile.outputs.ref }}
 
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
