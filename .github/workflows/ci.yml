@@ -106,27 +106,19 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Build native addons (glibc 2.17 baseline)
-        run: |
-          cd crates
-          cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.17
-        env:
-          CARGO_PROFILE: ci
-          # `zig cc -O3` defines NDEBUG, while tree-sitter-just requires
-          # assertions enabled in its C scanner.
-          CFLAGS_x86_64_unknown_linux_gnu: -UNDEBUG
-
-      # Release compilation consumes the glibc-2.17 shared object above. The
-      # workspace loader used by the CLI instead resolves named `.node` files.
-      - name: Build native addons for the CLI smoke test
         run: bun run ci:build:native
         env:
           TARGET_VARIANTS: baseline modern
+          CROSS_TARGET: x86_64-unknown-linux-gnu.2.17
+          TARGET_PLATFORM: linux
+          TARGET_ARCH: x64
 
       - name: Upload release native artifact
         uses: actions/upload-artifact@v4
         with:
           name: native-linux-x64
-          path: target/x86_64-unknown-linux-gnu/release/*.so
+          path: packages/natives/native/pi_natives.linux-x64-*.node
+          if-no-files-found: error
           retention-days: 1
 
       - name: Upload CLI smoke native artifact
@@ -159,17 +151,16 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Build native addons
-        run: |
-          cd crates
-          cargo build --release --target x86_64-pc-windows-msvc
+        run: bun run ci:build:native
         env:
-          CARGO_PROFILE: ci
+          TARGET_VARIANTS: baseline modern
 
       - name: Upload native artifact
         uses: actions/upload-artifact@v4
         with:
           name: native-windows-x64
-          path: target/x86_64-pc-windows-msvc/release/*.dll
+          path: packages/natives/native/pi_natives.win32-x64-*.node
+          if-no-files-found: error
           retention-days: 1
 
   # ---------------------------------------------------------------------------
@@ -218,24 +209,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-linux-x64
-          path: native-artifacts/
+          path: packages/natives/native
 
       - run: bun install --frozen-lockfile
-
-      - name: Generate native bindings
-        run: bun run gen:native
-        env:
-          PI_NATIVE_ARTIFACTS_DIR: ${{ github.workspace }}/native-artifacts
 
       - name: Compile binary (linux-x64)
         run: bun run ci:release:build-binaries
         env:
-          CROSS_TARGET: linux-x64
+          RELEASE_TARGETS: linux-x64
 
       - name: Package as zip
         run: |
           mkdir -p release
-          cp dist/omp-linux-x64 release/omp
+          cp packages/coding-agent/binaries/omp-linux-x64 release/omp
           chmod +x release/omp
           cd release && zip ../omp-linux-x64.zip omp
 
@@ -263,24 +249,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-windows-x64
-          path: native-artifacts/
+          path: packages/natives/native
 
       - run: bun install --frozen-lockfile
-
-      - name: Generate native bindings
-        run: bun run gen:native
-        env:
-          PI_NATIVE_ARTIFACTS_DIR: ${{ github.workspace }}/native-artifacts
 
       - name: Compile binary (windows-x64)
         run: bun run ci:release:build-binaries
         env:
-          CROSS_TARGET: windows-x64
+          RELEASE_TARGETS: win32-x64
 
       - name: Package as zip
         run: |
           mkdir release
-          copy dist\omp-windows-x64.exe release\omp.exe
+          copy packages\coding-agent\binaries\omp-windows-x64.exe release\omp.exe
           Compress-Archive -Path release\omp.exe -DestinationPath omp-windows-x64.zip
 
       - name: Upload release artifact
