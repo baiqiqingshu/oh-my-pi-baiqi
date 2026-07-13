@@ -115,11 +115,26 @@ jobs:
           # assertions enabled in its C scanner.
           CFLAGS_x86_64_unknown_linux_gnu: -UNDEBUG
 
-      - name: Upload native artifact
+      # Release compilation consumes the glibc-2.17 shared object above. The
+      # workspace loader used by the CLI instead resolves named `.node` files.
+      - name: Build native addons for the CLI smoke test
+        run: bun run ci:build:native
+        env:
+          TARGET_VARIANTS: baseline modern
+
+      - name: Upload release native artifact
         uses: actions/upload-artifact@v4
         with:
           name: native-linux-x64
           path: target/x86_64-unknown-linux-gnu/release/*.so
+          retention-days: 1
+
+      - name: Upload CLI smoke native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-linux-x64-smoke
+          path: packages/natives/native/pi_natives.linux-x64-*.node
+          if-no-files-found: error
           retention-days: 1
 
   # ---------------------------------------------------------------------------
@@ -161,7 +176,7 @@ jobs:
   # Smoke Test
   # ---------------------------------------------------------------------------
   test_smoke:
-    needs: [check, sync_lockfile]
+    needs: [check, native_linux_x64, sync_lockfile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -173,6 +188,13 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
 
       - run: bun install --frozen-lockfile
+
+      - name: Restore native addon for CLI smoke test
+        uses: actions/download-artifact@v4
+        with:
+          name: native-linux-x64-smoke
+          path: packages/natives/native
+
       - run: bun packages/coding-agent/src/cli.ts --version
       - run: bun packages/coding-agent/src/cli.ts --help
 
