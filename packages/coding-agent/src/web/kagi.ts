@@ -7,7 +7,7 @@
  * are categorized result buckets rather than the legacy flat object array.
  */
 import { type AuthStorage, type FetchImpl, withAuth } from "@oh-my-pi/pi-ai";
-import { withHardTimeout } from "./search/providers/utils";
+import { withHardTimeout } from "./request-utils";
 
 const KAGI_SEARCH_URL = "https://kagi.com/api/v1/search";
 

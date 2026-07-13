@@ -1,6 +1,6 @@
 import { type FetchImpl, getEnvApiKey } from "@oh-my-pi/pi-ai";
 import type { AgentStorage } from "../session/agent-storage";
-import { findCredential, withHardTimeout } from "./search/providers/utils";
+import { findCredential, withHardTimeout } from "./request-utils";
 
 const PARALLEL_API_URL = "https://api.parallel.ai";
 export const PARALLEL_SEARCH_URL = `${PARALLEL_API_URL}/v1beta/search`;
