@@ -1,0 +1,37 @@
+# Copy this file to ~/.omp/agent/models.yml, then replace the placeholder values.
+# Do not commit real API keys. You can also resolve secrets from a command, e.g.
+# apiKey: "!op read op://dev/openai/api-key"
+
+providers:
+  # An OpenAI-compatible API provider.
+  my-openai-compatible:
+    baseUrl: https://api.example.com/v1
+    apiKey: YOUR_API_KEY
+    api: openai-completions
+    models:
+      - id: your-model-id
+        name: Your Model Name
+        reasoning: false
+        input: [text]
+        contextWindow: 128000
+        maxTokens: 16384
+        cost:
+          input: 0
+          output: 0
+          cacheRead: 0
+          cacheWrite: 0
+
+  # Discover models served by a local Ollama instance.
+  ollama:
+    baseUrl: http://127.0.0.1:11434
+    api: openai-completions
+    auth: none
+    discovery:
+      type: ollama
+
+# Optional: group a concrete provider/model with its upstream canonical model.
+# equivalence:
+#   overrides:
+#     my-openai-compatible/your-model-id: gpt-5.3-codex
+#   exclude:
+#     - ollama/local-model-id
