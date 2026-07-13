@@ -1,8 +1,7 @@
 /**
  * omp auth-gateway HTTP server.
  *
- * Accepts any provider-format request (OpenAI chat-completions, Anthropic
- * messages, OpenAI Responses) and dispatches through pi-ai's `streamSimple()`
+ * Accepts OpenAI-format requests (chat-completions and Responses) and dispatches through pi-ai's `streamSimple()`
  * — which handles credential injection, anthropic-beta headers, codex
  * websocket transport, and all the per-provider intricacies. The gateway is
  * pure protocol translation: foreign wire → omp Context → pi-ai stream() →
@@ -14,7 +13,6 @@
  *   GET  /v1/credentials/check             → per-credential auth probe (diagnose 401s in a multi-account pool)
  *   GET  /v1/models                        → list known models from the registry
  *   POST /v1/chat/completions              → OpenAI chat-completions in/out
- *   POST /v1/messages                      → Anthropic messages in/out
  *   POST /v1/responses                     → OpenAI Responses in/out
  */
 
@@ -24,7 +22,6 @@ import type { ApiKeyResolver } from "../auth-retry";
 import type { AuthStorage } from "../auth-storage";
 import { classifyGatewayError } from "../error/gateway";
 import { isUsageLimitOutcome } from "../error/rate-limit";
-import * as anthropicMessages from "../providers/anthropic-messages-server";
 import * as openaiChat from "../providers/openai-chat-server";
 import * as openaiResponses from "../providers/openai-responses-server";
 import * as piNative from "../providers/pi-native-server";
@@ -63,7 +60,6 @@ export interface AuthGatewayBootOptions extends AuthGatewayServerOptions {
 
 const FORMAT_ROUTES: Record<string, { module: FormatModule; label: string }> = {
 	"/v1/chat/completions": { module: openaiChat, label: "openai-chat" },
-	"/v1/messages": { module: anthropicMessages, label: "anthropic-messages" },
 	"/v1/responses": { module: openaiResponses, label: "openai-responses" },
 };
 
